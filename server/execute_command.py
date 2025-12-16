@@ -44,8 +44,8 @@ Examples:
     )
     parser.add_argument(
         '--ssh-config',
-        default='server/config/ssh_config',
-        help='Path to SSH config file (default: server/config/ssh_config)'
+        default='.ssh/config',
+        help='Path to SSH config file (default: .ssh/config)'
     )
     parser.add_argument(
         '--host',

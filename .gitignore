@@ -1,10 +1,5 @@
 # SSH Configuration (contains sensitive credentials)
-server/config/ssh_config
-server/config/*.pem
-server/config/*_rsa
-server/config/*_rsa.pub
-server/config/id_*
-server/config/*.key
+.ssh/
 
 .cursor/*.log
 

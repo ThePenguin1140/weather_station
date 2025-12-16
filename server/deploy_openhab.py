@@ -3,7 +3,7 @@
 Deploy OpenHAB configuration files to the OpenHAB server via SSH.
 
 This script deploys files from server/config/openhab_config/ to the OpenHAB server
-using SSH/SCP based on the configuration in server/config/ssh_config.
+using SSH/SCP based on the configuration in .ssh/config.
 """
 
 import os
@@ -533,8 +533,8 @@ Note: This script requires a dedicated deployment user (openhab-deploy) with:
     )
     parser.add_argument(
         '--ssh-config',
-        default='server/config/ssh_config',
-        help='Path to SSH config file (default: server/config/ssh_config)'
+        default='.ssh/config',
+        help='Path to SSH config file (default: .ssh/config)'
     )
     parser.add_argument(
         '--config-dir',

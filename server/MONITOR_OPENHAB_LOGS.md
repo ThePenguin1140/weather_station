@@ -8,7 +8,7 @@ This guide provides various methods to monitor OpenHAB logs on your weather stat
 
 ```bash
 # Connect to server
-ssh -F server/config/ssh_config server
+ssh -F .ssh/config server
 
 # Follow OpenHAB logs in real-time
 sudo journalctl -u openhab -f
@@ -118,13 +118,13 @@ You can run log monitoring commands directly without interactive SSH:
 
 ```bash
 # View last 50 lines
-ssh -F server/config/ssh_config server "sudo journalctl -u openhab -n 50 --no-pager"
+ssh -F .ssh/config server "sudo journalctl -u openhab -n 50 --no-pager"
 
 # Follow logs (will run until interrupted)
-ssh -F server/config/ssh_config server "sudo journalctl -u openhab -f"
+ssh -F .ssh/config server "sudo journalctl -u openhab -f"
 
 # Search for errors in last hour
-ssh -F server/config/ssh_config server "sudo journalctl -u openhab --since '1 hour ago' | grep -i error"
+ssh -F .ssh/config server "sudo journalctl -u openhab --since '1 hour ago' | grep -i error"
 ```
 
 ## Useful Commands
@@ -187,7 +187,7 @@ sudo journalctl -u openhab --since "1 day ago" --no-pager > openhab_logs.txt
 
 ```bash
 # 1. Connect to server
-ssh -F server/config/ssh_config server
+ssh -F .ssh/config server
 
 # 2. Start monitoring logs in one terminal
 sudo journalctl -u openhab -f
