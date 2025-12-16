@@ -1,0 +1,38 @@
+// Weather Station Items Configuration for OpenHAB 5.0.3
+// Place this file in your OpenHAB items/ directory (e.g., /etc/openhab/items/)
+//
+// These items are updated directly via REST API by the Python receiver script.
+// No channel bindings are needed since receiver.py sends data directly to item states.
+
+Group WeatherStation "Weather Station" <temperature>
+
+// Temperature from BME280 sensor
+Number:Temperature WeatherStation_Temperature "Temperature [%.1f °C]" <temperature> (WeatherStation)
+
+// Pressure from BME280 sensor
+Number:Pressure WeatherStation_Pressure "Pressure [%.1f hPa]" <pressure> (WeatherStation)
+
+// Altitude calculated from pressure
+Number:Length WeatherStation_Altitude "Altitude [%.1f m]" <altitude> (WeatherStation)
+
+// Humidity from BME280 sensor
+Number:Dimensionless WeatherStation_Humidity "Humidity [%.0f %%]" <humidity> (WeatherStation)
+
+// Wind Direction from AS5600 sensor
+Number:Angle WeatherStation_WindDirection "Wind Direction [%.0f °]" <wind> (WeatherStation)
+
+// Wind Speed from anemometer
+Number:Speed WeatherStation_WindSpeed "Wind Speed [%.2f km/h]" <wind> (WeatherStation)
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,60 @@
+Required Arduino Libraries for Weather Station Client
+=====================================================
+
+Install these libraries via Arduino IDE Library Manager (Sketch > Include Library > Manage Libraries):
+
+1. RF24 by TMRh20, Avamander
+   - Library Name: RF24
+   - Version: Latest (1.4.9 or newer)
+   - Purpose: NRF24L01 wireless module communication
+   - Installation: Search for "RF24" in Library Manager
+
+2. Adafruit BMP280 Library
+   - Library Name: Adafruit BMP280 Library
+   - Version: Latest (2.6.6 or newer)
+   - Purpose: BMP280 pressure, temperature, and altitude sensor
+   - Dependencies: Adafruit Unified Sensor, Adafruit BusIO
+   - Installation: Search for "Adafruit BMP280" in Library Manager
+   - Note: Arduino IDE will automatically install dependencies
+
+3. ArduinoJson by Benoit Blanchon
+   - Library Name: ArduinoJson
+   - Version: Latest (6.x or newer)
+   - Purpose: JSON serialization for data transmission
+   - Installation: Search for "ArduinoJson" in Library Manager
+
+Built-in Libraries (no installation needed):
+- SPI: Serial Peripheral Interface for NRF24L01
+- Wire: I2C communication for BMP280
+
+Installation Steps:
+1. Open Arduino IDE
+2. Go to Sketch > Include Library > Manage Libraries
+3. Search for each library name above
+4. Click "Install" for each library
+5. Restart Arduino IDE if prompted
+
+Alternative Installation (Manual):
+If Library Manager doesn't work, you can install libraries manually:
+1. Download libraries from GitHub:
+   - RF24: https://github.com/nRF24/RF24
+   - Adafruit BMP280: https://github.com/adafruit/Adafruit_BMP280_Library
+   - ArduinoJson: https://github.com/bblanchon/ArduinoJson
+2. Extract to Arduino libraries folder:
+   - Windows: Documents/Arduino/libraries/
+   - Mac: ~/Documents/Arduino/libraries/
+   - Linux: ~/Arduino/libraries/
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,29 @@
+# Python dependencies for Weather Station Receiver
+# Install with: pip install -r requirements.txt
+
+# NRF24L01 radio library for Raspberry Pi
+# Note: This requires SPI support and may need system dependencies
+# See server/README.md for full installation instructions
+pyRF24>=0.2.0
+
+# HTTP client for OpenHAB REST API
+requests>=2.31.0
+
+# SSH/SCP client for deployment
+paramiko>=3.0.0
+scp>=0.14.0
+
+# Optional: For MQTT support (if using MQTT instead of REST API)
+# paho-mqtt>=1.6.1
+
+
+
+
+
+
+
+
+
+
+
+

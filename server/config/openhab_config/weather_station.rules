@@ -1,0 +1,54 @@
+// Weather Station Rules for OpenHAB 5.0.3
+// Place this file in your OpenHAB rules/ directory (e.g., /etc/openhab/rules/)
+// Optional: Add automation rules for weather station data
+
+rule "Weather Station Data Received"
+when
+    Item WeatherStation_Temperature received update or
+    Item WeatherStation_Pressure received update or
+    Item WeatherStation_Altitude received update or
+    Item WeatherStation_Humidity received update or
+    Item WeatherStation_WindDirection received update or
+    Item WeatherStation_WindSpeed received update
+then
+    // Log when data is received
+    logInfo("WeatherStation", "Weather station data updated")
+    
+    // Optional: Add alerts for extreme values
+    val temp = WeatherStation_Temperature.state as Number
+    if (temp !== null && temp < -10) {
+        logWarn("WeatherStation", "Very low temperature detected: {} °C", temp)
+    }
+    
+    val windSpeed = WeatherStation_WindSpeed.state as Number
+    if (windSpeed !== null && windSpeed > 80) {
+        logWarn("WeatherStation", "High wind speed detected: {} km/h", windSpeed)
+    }
+end
+
+rule "Weather Station Data Stale Check"
+when
+    Time cron "0 */5 * * * ?"  // Every 5 minutes
+then
+    // Check if data is stale (no updates in last 10 minutes)
+    val lastUpdate = WeatherStation_Temperature.lastUpdate
+    if (lastUpdate !== null) {
+        val minutesSinceUpdate = now.toInstant().toEpochMilli() - lastUpdate.toInstant().toEpochMilli()
+        if (minutesSinceUpdate > 600000) {  // 10 minutes in milliseconds
+            logWarn("WeatherStation", "Weather station data appears stale (last update: {})", lastUpdate)
+        }
+    }
+end
+
+
+
+
+
+
+
+
+
+
+
+
+

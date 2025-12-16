@@ -1,0 +1,25 @@
+{
+  "radio_ce_pin": 22,
+  "radio_csn_pin": 0,
+  "radio_channel": 76,
+  "openhab_url": "http://localhost:8080",
+  "openhab_items": {
+    "temp": "WeatherStation_Temperature",
+    "pressure_hpa": "WeatherStation_Pressure",
+    "altitude": "WeatherStation_Altitude",
+    "humidity": "WeatherStation_Humidity",
+    "wind_direction_deg": "WeatherStation_WindDirection",
+    "wind_speed": "WeatherStation_WindSpeed"
+  },
+  "sea_level_pressure": 1013.25
+}
+
+
+
+
+
+
+
+
+
+

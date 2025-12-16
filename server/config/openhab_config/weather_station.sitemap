@@ -1,0 +1,37 @@
+// Weather Station Sitemap for OpenHAB 5.0.3
+// Place this file in your OpenHAB sitemaps/ directory (e.g., /etc/openhab/sitemaps/)
+// Or add this section to your existing sitemap
+//
+// Note: In OpenHAB 5.0.3, sitemaps may not display in the main UI by default.
+// Access via Basic UI: http://your-openhab:8080/basicui/app
+
+sitemap weather_station label="Weather Station" {
+    Frame label="Current Conditions" {
+        Text item=WeatherStation_Temperature icon="temperature"
+        Text item=WeatherStation_Humidity icon="humidity"
+        Text item=WeatherStation_Pressure icon="pressure"
+        Text item=WeatherStation_Altitude icon="altitude"
+    }
+    
+    Frame label="Wind" {
+        Text item=WeatherStation_WindSpeed icon="wind"
+        Text item=WeatherStation_WindDirection icon="wind"
+    }
+    
+    Frame label="All Sensors" {
+        Group item=WeatherStation
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
