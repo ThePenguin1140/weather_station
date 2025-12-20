@@ -309,12 +309,27 @@ void transmitData(SensorData data) {
   Serial.print(payloadSize);
   Serial.print(F(" bytes | Content: "));
   Serial.println(payload);
+
+  // #region agent log
+  // DEBUG: Log binary payload size and first bytes (Hypothesis: oversize payload caused TX failure)
+  const uint8_t binaryPayloadSize = sizeof(SensorData);
+  Serial.print(F("[DEBUG-HF] Binary payload size:"));
+  Serial.print(binaryPayloadSize);
+  Serial.print(F(" bytes | first bytes:"));
+  const uint8_t* raw = reinterpret_cast<const uint8_t*>(&data);
+  for (uint8_t i = 0; i < binaryPayloadSize && i < 16; i++) {
+    Serial.print(F(" "));
+    Serial.print(raw[i], HEX);
+  }
+  Serial.println();
+  // #endregion
   
   // Transmit data
   bool success = false;
   for (int i = 0; i < MAX_RETRIES && !success; i++) {
     radio.stopListening();
-    success = radio.write(payload, payloadSize + 1);  // +1 for null terminator
+    // NOTE: Send compact binary struct instead of JSON string to stay under 32-byte NRF24 payload limit
+    success = radio.write(&data, binaryPayloadSize);
     
     if (success) {
       Serial.println(F("✓ Transmitted successfully"));

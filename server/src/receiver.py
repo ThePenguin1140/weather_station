@@ -9,9 +9,12 @@ import time
 import json
 import logging
 import sys
+import struct
 from typing import Optional, Dict, Any
 import requests
-from RF24 import RF24, RF24_PA_MAX, RF24_250KBPS
+
+# Use pyRF24 library (https://github.com/nRF24/pyRF24)
+from pyrf24 import RF24, RF24_PA_MAX, RF24_250KBPS  # type: ignore
 
 # Configure logging
 logging.basicConfig(
@@ -23,6 +26,31 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Global flag to control agent debug logging (disabled by default)
+_agent_debug_enabled = False
+
+
+def agent_debug_log(hypothesis_id: str, location: str, message: str, data: Dict[str, Any]) -> None:
+    """Append a single NDJSON debug log line for this debug session."""
+    if not _agent_debug_enabled:
+        return
+    try:
+        log_entry = {
+            "sessionId": "debug-session",
+            "runId": "pre-fix",
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        with open(r"debug.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_entry))
+            f.write("\n")
+    except Exception:
+        # Never let debug logging break the main flow
+        pass
 
 
 class WeatherStationReceiver:
@@ -72,7 +100,7 @@ class WeatherStationReceiver:
         logger.info("NRF24L01 initialized successfully")
         logger.info(f"Listening on channel {config.get('radio_channel', 76)}")
     
-    def receive_data(self, timeout: float = 1.0) -> Optional[str]:
+    def receive_data(self, timeout: float = 1.0) -> Optional[bytes]:
         """
         Receive data from NRF24L01
         
@@ -80,38 +108,113 @@ class WeatherStationReceiver:
             timeout: Timeout in seconds
             
         Returns:
-            Received data string or None if timeout
+            Raw payload bytes or None if timeout
         """
+        # #region agent log
+        agent_debug_log("H1", "receiver.py:receive_data:entry", "receive_data called", {"timeout": timeout})
+        # #endregion
         if self.radio.available():
+            # #region agent log
+            agent_debug_log("H1", "receiver.py:receive_data:available", "Radio has data available", {})
+            # #endregion
             # Read payload
             payload_size = self.radio.getDynamicPayloadSize()
+            # #region agent log
+            agent_debug_log("H1", "receiver.py:receive_data:payload_size", "Got payload size", {"payload_size": payload_size, "type": str(type(payload_size))})
+            # #endregion
             if payload_size > 0:
+                # #region agent log
+                agent_debug_log("H2", "receiver.py:receive_data:before_read", "Before read() call", {"payload_size": payload_size, "read_method": str(type(self.radio.read))})
+                # #endregion
                 buffer = bytearray(payload_size)
-                self.radio.read(buffer, payload_size)
+                # #region agent log
+                agent_debug_log("H2", "receiver.py:receive_data:buffer_created", "Buffer created", {"buffer_len": len(buffer), "buffer_type": str(type(buffer))})
+                # #endregion
                 try:
-                    data = buffer.decode('utf-8')
-                    logger.debug(f"Received data: {data}")
-                    return data
-                except UnicodeDecodeError:
-                    logger.warning("Failed to decode received data")
-                    return None
+                    # #region agent log
+                    agent_debug_log("H3", "receiver.py:receive_data:read_attempt", "Attempting read with buffer", {"calling_with": "buffer, payload_size"})
+                    # #endregion
+                    self.radio.read(buffer, payload_size)
+                    # #region agent log
+                    agent_debug_log("H3", "receiver.py:receive_data:read_success", "Read succeeded with buffer method", {"buffer_after": buffer.hex()})
+                    # #endregion
+                except TypeError as e:
+                    # #region agent log
+                    agent_debug_log("H4", "receiver.py:receive_data:read_error", "Read failed with buffer method", {"error": str(e), "error_type": type(e).__name__})
+                    # #endregion
+                    # Try alternative API: read(length) -> bytearray
+                    # #region agent log
+                    agent_debug_log("H4", "receiver.py:receive_data:read_alt_attempt", "Trying read(length) API", {"payload_size": payload_size})
+                    # #endregion
+                    result = self.radio.read(payload_size)
+                    # #region agent log
+                    agent_debug_log("H4", "receiver.py:receive_data:read_alt_success", "Read succeeded with length-only API", {"result_type": str(type(result)), "result_len": len(result), "result_hex": result.hex()})
+                    # #endregion
+                    buffer = result
+                data_bytes = bytes(buffer)
+                # #region agent log
+                agent_debug_log("H1", "receiver.py:receive_data:return", "Returning payload bytes", {"payload_size": len(data_bytes), "payload_hex": data_bytes.hex()})
+                # #endregion
+                logger.debug(f"Received {payload_size} bytes from RF24")
+                return data_bytes
+        # #region agent log
+        agent_debug_log("H1", "receiver.py:receive_data:no_data", "No data available or payload_size <= 0", {"available": self.radio.available() if hasattr(self.radio, 'available') else 'N/A'})
+        # #endregion
         return None
     
-    def parse_sensor_data(self, data_str: str) -> Optional[Dict[str, Any]]:
+    def parse_sensor_data(self, data_bytes: bytes) -> Optional[Dict[str, Any]]:
         """
-        Parse JSON sensor data
+        Parse compact binary sensor data struct from NRF24L01
         
         Args:
-            data_str: JSON string from transmitter
+            data_bytes: Raw bytes from transmitter
             
         Returns:
             Parsed sensor data dictionary or None if parsing fails
         """
         try:
-            data = json.loads(data_str)
+            expected_size = struct.calcsize("<fffHf")
+            if len(data_bytes) < expected_size:
+                logger.error(
+                    f"Received payload too short for SensorData struct: "
+                    f"{len(data_bytes)} bytes (expected {expected_size})"
+                )
+                agent_debug_log(
+                    hypothesis_id="H2",
+                    location="receiver.py:parse_sensor_data",
+                    message="Payload too short for binary struct",
+                    data={"payload_size": len(data_bytes)},
+                )
+                return None
+
+            temperature, pressure_pa, humidity, wind_direction_raw, wind_speed = struct.unpack(
+                "<fffHf", data_bytes[:expected_size]
+            )
+
+            data: Dict[str, Any] = {
+                "temp": float(temperature),
+                "pressure": float(pressure_pa),
+                "humidity": float(humidity),
+                "wind_direction": int(wind_direction_raw),
+                "wind_speed": float(wind_speed),
+            }
+
+            agent_debug_log(
+                hypothesis_id="H2",
+                location="receiver.py:parse_sensor_data",
+                message="Parsed binary sensor data",
+                data=data,
+            )
+
             return data
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON data: {e}")
+        except struct.error as e:
+            logger.error(f"Failed to unpack binary sensor data: {e}")
+            agent_debug_log(
+                hypothesis_id="H2",
+                location="receiver.py:parse_sensor_data",
+                message="Struct unpack failed",
+                data={"error": str(e), "payload_hex": data_bytes.hex()},
+            )
             return None
     
     def calculate_pressure_hpa(self, pressure_pa: float) -> float:
@@ -235,11 +338,11 @@ class WeatherStationReceiver:
         try:
             while True:
                 # Try to receive data
-                data_str = self.receive_data(timeout=0.1)
+                payload = self.receive_data(timeout=0.1)
                 
-                if data_str:
+                if payload:
                     # Parse sensor data
-                    sensor_data = self.parse_sensor_data(data_str)
+                    sensor_data = self.parse_sensor_data(payload)
                     
                     if sensor_data:
                         logger.info(f"Received raw sensor data: {sensor_data}")
@@ -289,6 +392,7 @@ def load_config(config_path: str = 'config.json') -> Dict[str, Any]:
 
 def main():
     """Main entry point"""
+    global _agent_debug_enabled
     import argparse
     
     parser = argparse.ArgumentParser(description='Weather Station Receiver')
@@ -297,7 +401,17 @@ def main():
         default='config.json',
         help='Path to configuration file (default: config.json)'
     )
+    parser.add_argument(
+        '--debug-log',
+        action='store_true',
+        help='Enable agent debug logging to debug.log (disabled by default)'
+    )
     args = parser.parse_args()
+    
+    # Set agent debug logging flag
+    _agent_debug_enabled = args.debug_log
+    if _agent_debug_enabled:
+        logger.info("Agent debug logging enabled (writing to debug.log)")
     
     # Load configuration
     config = load_config(args.config)

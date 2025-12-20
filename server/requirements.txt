@@ -4,7 +4,8 @@
 # NRF24L01 radio library for Raspberry Pi
 # Note: This requires SPI support and may need system dependencies
 # See server/README.md for full installation instructions
-pyRF24>=0.2.0
+# Package: https://github.com/nRF24/pyRF24
+pyrf24>=0.2.0
 
 # HTTP client for OpenHAB REST API
 requests>=2.31.0
