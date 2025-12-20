@@ -175,10 +175,10 @@ def ensure_restricted_sudo(ssh, expected_user=None):
         sys.exit(1)
 
 
-def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_config=False):
+def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_config=False, restart_service=True):
     """
     Deploy receiver.py and config.json to the server, ensure Python dependencies
-    are installed, and restart the existing systemd service.
+    are installed, and optionally restart the existing systemd service.
     
     This function assumes the systemd service unit already exists on the server.
     It does NOT create or modify systemd unit files. The service must be created
@@ -190,6 +190,7 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
         remote_dir: Remote directory for receiver files
         service_name: Name of the existing systemd service to restart
         deploy_config: Whether to deploy config.json alongside receiver.py
+        restart_service: Whether to restart the service after deployment (default: True)
     
     Returns:
         bool: True if deployment and restart succeeded, False otherwise
@@ -443,7 +444,7 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
         )
 
     # Restart the existing service (assumes it was created as per SETUP_DEPLOY_USER.md)
-    if deployed_count > 0:
+    if deployed_count > 0 and restart_service:
         print(f"\nRestarting receiver service '{service_name}'...")
         log_debug(
             "deploy_openhab.py:deploy_receiver_service",
@@ -467,36 +468,39 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
             )
             return False
 
-    # Verify service is active
-    status_cmd = f"systemctl is-active {service_name}"
-    exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, status_cmd)
-    service_status = stdout_text.strip()
-    log_debug(
-        "deploy_openhab.py:deploy_receiver_service",
-        "Receiver service status",
-        {"status": service_status},
-        "R",
-    )
+        # Verify service is active after restart
+        status_cmd = f"systemctl is-active {service_name}"
+        exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, status_cmd)
+        service_status = stdout_text.strip()
+        log_debug(
+            "deploy_openhab.py:deploy_receiver_service",
+            "Receiver service status",
+            {"status": service_status},
+            "R",
+        )
 
-    if service_status == "active":
-        print(f"  ✓ Receiver service '{service_name}' is active")
-        if not deps_ok:
-            print(
-                "  ⚠ Note: The receiver service is running, but there were "
-                "problems installing or updating Python dependencies. "
-                "See messages above."
-            )
+        if service_status == "active":
+            print(f"  ✓ Receiver service '{service_name}' is active")
+            if not deps_ok:
+                print(
+                    "  ⚠ Note: The receiver service is running, but there were "
+                    "problems installing or updating Python dependencies. "
+                    "See messages above."
+                )
+            return deps_ok
+
+        print(
+            f"  ✗ Receiver service '{service_name}' is not active "
+            f"(status: {service_status})"
+        )
+        print(
+            f"  Note: The '{service_name}' service must exist on the server.\n"
+            f"        If it doesn't, create it as root per server/SETUP_DEPLOY_USER.md Step 7."
+        )
+        return False
+    elif deployed_count > 0 and not restart_service:
+        print(f"\nSkipping receiver service restart (--no-restart flag set)")
         return deps_ok
-
-    print(
-        f"  ✗ Receiver service '{service_name}' is not active "
-        f"(status: {service_status})"
-    )
-    print(
-        f"  Note: The '{service_name}' service must exist on the server.\n"
-        f"        If it doesn't, create it as root per server/SETUP_DEPLOY_USER.md Step 7."
-    )
-    return False
 
 
 def deploy_files(
@@ -653,11 +657,17 @@ def deploy_files(
                     f"  server/requirements.txt (LOCAL FILE NOT FOUND) "
                     "- dependencies would NOT be installed automatically"
                 )
-            print(
-                f"\nWould restart existing systemd service "
-                f"'{receiver_service_name}.service'\n"
-                f"(Note: service must already exist on server, see SETUP_DEPLOY_USER.md Step 7)"
-            )
+            if restart_service:
+                print(
+                    f"\nWould restart existing systemd service "
+                    f"'{receiver_service_name}.service'\n"
+                    f"(Note: service must already exist on server, see SETUP_DEPLOY_USER.md Step 7)"
+                )
+            else:
+                print(
+                    f"\nWould skip restarting systemd service "
+                    f"'{receiver_service_name}.service' (--no-restart flag set)"
+                )
         if deploy_openhabian_conf:
             openhabian_local_path = local_config_path / "openhabian.conf"
             print("\nWould deploy openhabian.conf:")
@@ -1082,15 +1092,21 @@ def deploy_files(
                 remote_dir=receiver_remote_dir_resolved,
                 service_name=receiver_service_name,
                 deploy_config=deploy_receiver_config,
+                restart_service=restart_service,
             )
 
         print(f"\n✓ Deployment complete! ({deployed_count} OpenHAB files deployed)")
         if deploy_receiver:
             if receiver_ok:
-                print(
-                    f"✓ Receiver files deployed and service "
-                    f"'{receiver_service_name}' restarted"
-                )
+                if restart_service:
+                    print(
+                        f"✓ Receiver files deployed and service "
+                        f"'{receiver_service_name}' restarted"
+                    )
+                else:
+                    print(
+                        f"✓ Receiver files deployed (service restart skipped due to --no-restart)"
+                    )
             else:
                 print(
                     f"✗ Receiver deployment encountered issues (see output above)"
