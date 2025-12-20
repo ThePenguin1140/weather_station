@@ -316,8 +316,13 @@ class WeatherStationReceiver:
                 # Send to OpenHAB REST API
                 url = f"{self.openhab_url}/rest/items/{item_name}/state"
                 try:
-                    response = requests.put(url, data=str(value), timeout=5)
-                    if response.status_code == 200:
+                    response = requests.put(
+                        url, 
+                        data=str(value), 
+                        headers={'Content-Type': 'text/plain'}, 
+                        timeout=5
+                    )
+                    if response.ok:  # Accepts any 2xx status code (200, 202, etc.)
                         logger.debug(f"Sent {sensor_key}={value} to {item_name}")
                     else:
                         logger.warning(
