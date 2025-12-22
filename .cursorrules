@@ -1,0 +1,289 @@
+# Weather Station Project - Cursor Agent Rules
+
+## Project Overview
+
+This is a weather station monorepo with two main components:
+- **Client**: Arduino Nano with NRF24L01, BME280, AS5600, and wind speed sensors
+- **Server**: Raspberry Pi Python receiver with OpenHAB integration
+
+## Project Structure
+
+```
+weather_station/
+├── client/                    # Arduino project
+│   ├── main/
+│   │   └── main.ino          # Main Arduino sketch
+│   ├── libraries/            # Library documentation
+│   └── README.md
+├── server/                    # Raspberry Pi server
+│   ├── src/
+│   │   ├── receiver.py       # Python receiver application
+│   │   └── config.json       # Receiver configuration
+│   ├── config/
+│   │   └── openhab_config/   # OpenHAB configuration files
+│   ├── deploy_openhab.py     # Deployment script
+│   ├── execute_command.py   # SSH command execution utility
+│   └── requirements.txt     # Python dependencies
+├── .ssh/
+│   └── config               # SSH configuration (DO NOT COMMIT)
+└── README.md
+```
+
+## Development Environment
+
+### Local (Windows/PowerShell)
+- **OS**: Windows 10/11
+- **Shell**: PowerShell
+- **Python**: 3.7+ (use virtual environment)
+- **Virtual Environment**: `venv/` (activate with `.\venv\Scripts\Activate.ps1`)
+- **Arduino CLI**: Use `arduino-cli` for Arduino operations
+- **Arduino Port**: COM4
+- **Arduino Board**: arduino:avr:nano
+
+### Remote (Raspberry Pi 4 Model B)
+- **OS**: Raspberry Pi OS (Linux)
+- **Services**: 
+  - `openhab` - OpenHAB home automation platform
+  - `weather-station` - Python receiver service
+- **OpenHAB URL**: http://weatherstation:8080
+- **SSH Access**: Via `.ssh/config` using `server-deploy` host
+- **Deployment User**: `openhab-deploy` (limited sudo access)
+
+## SSH Configuration
+
+SSH configuration is in `.ssh/config` (DO NOT COMMIT - contains sensitive credentials).
+
+**Host Aliases**:
+- `server-deploy`: Deployment user (`openhab-deploy`) - used for deployments
+- `server`: Admin user (`admin`) - used for administrative tasks
+
+**Usage**:
+```powershell
+# Connect to deployment server
+ssh -F .ssh/config server-deploy
+
+# Execute remote command
+ssh -F .ssh/config server-deploy "command"
+```
+
+## Deployment Workflow
+
+### Prerequisites
+1. Activate virtual environment: `.\venv\Scripts\Activate.ps1`
+2. Ensure SSH keys are configured in `.ssh/config`
+3. Verify deployment user has proper permissions (see `server/SETUP_DEPLOY_USER.md`)
+
+### Deployment Commands
+
+**Full Deployment** (OpenHAB config + receiver):
+```powershell
+.\venv\Scripts\Activate.ps1
+python server/deploy_openhab.py
+```
+
+**Deploy Only OpenHAB Config**:
+```powershell
+python server/deploy_openhab.py --skip-receiver
+```
+
+**Deploy Only Receiver**:
+```powershell
+python server/deploy_openhab.py --skip-openhab
+```
+
+**Dry Run** (see what would be deployed):
+```powershell
+python server/deploy_openhab.py --dry-run
+```
+
+**Deploy Without Restarting Services**:
+```powershell
+python server/deploy_openhab.py --no-restart
+```
+
+**Deploy Receiver Config File**:
+```powershell
+python server/deploy_openhab.py --receiver_config
+```
+
+### Deployment Script Options
+- `--skip-receiver`: Skip receiver deployment
+- `--skip-openhab`: Skip OpenHAB config deployment
+- `--no-restart`: Don't restart services after deployment
+- `--dry-run`: Show what would be done without deploying
+- `--receiver_config`: Deploy config.json alongside receiver.py
+- `--host`: Specify SSH host (default: server-deploy)
+- `--remote-dir`: Custom OpenHAB config directory (default: /etc/openhab)
+
+## Debugging
+
+### Service Status
+```powershell
+# Check OpenHAB service
+ssh -F .ssh/config server-deploy "sudo systemctl status openhab"
+
+# Check weather station receiver service
+ssh -F .ssh/config server-deploy "sudo systemctl status weather-station"
+
+# Check both services
+ssh -F .ssh/config server-deploy "sudo systemctl is-active openhab weather-station"
+```
+
+### View Logs
+```powershell
+# OpenHAB logs (real-time)
+ssh -F .ssh/config server-deploy "sudo journalctl -u openhab -f"
+
+# Receiver logs (real-time)
+ssh -F .ssh/config server-deploy "sudo journalctl -u weather-station -f"
+
+# Last 100 lines of OpenHAB logs
+ssh -F .ssh/config server-deploy "sudo journalctl -u openhab -n 100 --no-pager"
+
+# Search for errors
+ssh -F .ssh/config server-deploy "sudo journalctl -u weather-station --since '1 hour ago' | grep -i error"
+```
+
+### OpenHAB Access
+- **Web UI**: http://weatherstation:8080
+- **REST API**: http://weatherstation:8080/rest/
+- **Items**: Settings → Items → Search "WeatherStation"
+
+### Using execute_command.py
+```powershell
+# Execute remote command via utility script
+python server/execute_command.py "sudo systemctl status openhab"
+python server/execute_command.py --host server-deploy "whoami"
+```
+
+## Arduino Operations
+
+### Arduino CLI Commands
+
+**List Connected Boards**:
+```powershell
+arduino-cli board list
+```
+
+**Compile Sketch**:
+```powershell
+arduino-cli compile --fqbn arduino:avr:nano client/main
+```
+
+**Upload to Arduino Nano (COM4)**:
+```powershell
+arduino-cli upload -p COM4 --fqbn arduino:avr:nano client/main
+```
+
+**Monitor Serial Output**:
+```powershell
+arduino-cli monitor -p COM4
+```
+
+**Install Libraries**:
+```powershell
+arduino-cli lib install "RF24"
+arduino-cli lib install "Adafruit BME280 Library"
+arduino-cli lib install "ArduinoJson"
+```
+
+### Arduino Configuration
+- **Board**: Arduino Nano
+- **FQBN**: arduino:avr:nano
+- **Port**: COM4
+- **Processor**: ATmega328P (may need "Old Bootloader" variant)
+- **Sketch Location**: `client/main/main.ino`
+
+### Common Arduino Issues
+- Bootloader selection: Try "ATmega328P (Old Bootloader)" first
+- Port not found: Check Device Manager, try different USB port
+- Upload fails: May need manual reset during upload
+- See `client/UPLOAD_TROUBLESHOOTING.md` for detailed troubleshooting
+
+## File Locations
+
+### Key Files
+- **Deployment Script**: `server/deploy_openhab.py`
+- **Receiver Application**: `server/src/receiver.py`
+- **Receiver Config**: `server/src/config.json`
+- **Arduino Sketch**: `client/main/main.ino`
+- **SSH Config**: `.ssh/config` (DO NOT COMMIT)
+- **OpenHAB Config**: `server/config/openhab_config/`
+
+### Remote File Locations
+- **Receiver**: `~/weather_station/server/src/` (or as configured)
+- **OpenHAB Config**: `/etc/openhab/` (items/, rules/, sitemaps/, persistence/)
+- **Receiver Service**: systemd service `weather-station`
+- **OpenHAB Service**: systemd service `openhab`
+
+## Common Tasks
+
+### Deploy Receiver Code Changes
+1. Edit `server/src/receiver.py`
+2. Activate venv: `.\venv\Scripts\Activate.ps1`
+3. Deploy: `python server/deploy_openhab.py --skip-openhab`
+4. Verify: Check service status and logs
+
+### Deploy OpenHAB Configuration
+1. Edit files in `server/config/openhab_config/`
+2. Activate venv: `.\venv\Scripts\Activate.ps1`
+3. Deploy: `python server/deploy_openhab.py --skip-receiver`
+4. Verify: Check OpenHAB UI and logs
+
+### Update Arduino Sketch
+1. Edit `client/main/main.ino`
+2. Compile: `arduino-cli compile --fqbn arduino:avr:nano client/main`
+3. Upload: `arduino-cli upload -p COM4 --fqbn arduino:avr:nano client/main`
+4. Monitor: `arduino-cli monitor -p COM4` (optional)
+
+### Debug Service Issues
+1. Check service status via SSH
+2. View recent logs
+3. Check for errors in logs
+4. Verify file permissions and deployment
+5. Restart service if needed: `sudo systemctl restart {service}`
+
+## Security Notes
+
+- **NEVER commit** `.ssh/` directory or SSH private keys
+- SSH keys are in `.gitignore` - verify before committing
+- Deployment user (`openhab-deploy`) has limited sudo access
+- Private keys should never be shared or exposed
+- Use `server-deploy` host for deployments, `server` host for admin tasks
+
+## Documentation References
+
+### Primary Documentation
+- **Deployment Guide**: `server/DEPLOYMENT.md` - Step-by-step deployment procedures
+- **Debugging Guide**: `server/DEBUGGING.md` - Comprehensive debugging workflows
+- **Arduino CLI Guide**: `client/ARDUINO_CLI.md` - Arduino CLI usage and commands
+- **Agent Workflows**: `AGENT_WORKFLOWS.md` - Natural language prompt examples
+
+### Setup and Configuration
+- **Setup Deploy User**: `server/SETUP_DEPLOY_USER.md` - Initial server setup (required before first deployment)
+- **Monitor Logs**: `server/MONITOR_OPENHAB_LOGS.md` - Detailed log viewing methods
+- **Testing OpenHAB**: `server/TESTING_OPENHAB.md` - OpenHAB testing and verification
+- **Arduino Troubleshooting**: `client/UPLOAD_TROUBLESHOOTING.md` - Arduino upload error solutions
+
+## Agent Guidelines
+
+When helping with this project:
+1. Always check if virtual environment needs activation before Python commands
+2. Use `server-deploy` SSH host for deployment operations
+3. Verify file paths are relative to project root
+4. Test commands in dry-run mode when possible
+5. Check service status after deployments
+6. Reference existing documentation before creating new procedures
+7. Use PowerShell syntax for local commands, bash for remote commands
+8. Always verify SSH connectivity before attempting deployments
+9. Check logs when debugging service issues
+10. Use `execute_command.py` utility for complex SSH operations
+
+## Context Switching
+
+- **Local Context**: Windows PowerShell, project root directory
+- **Remote Context**: Raspberry Pi via SSH, Linux bash commands
+- **Arduino Context**: Local Windows, COM4 port, arduino-cli commands
+
+Always indicate which context commands should run in.
+
