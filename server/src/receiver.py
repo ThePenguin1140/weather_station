@@ -418,16 +418,16 @@ class WeatherStationReceiver:
                     # #endregion
                     continue
                 
-                # Fix for humidity: OpenHAB with unitSymbol="one" expects 0-1 range (ratio)
-                # but we're sending 0-100 range (percentage). Divide by 100 to convert.
-                if sensor_key == "humidity" and isinstance(value, (int, float)):
-                    value = value / 100.0
-                    # #region agent log
-                    agent_debug_log("H5", "receiver.py:send_to_openhab:humidity_converted", "Humidity converted from percentage to ratio", {
-                        "original_value": sensor_data[sensor_key],
-                        "converted_value": value
+                # Humidity is already in percentage (0-100) range from BME280 sensor
+                # OpenHAB item Number:Dimensionless with {unit="%"} expects 0-100 range, not 0-1 ratio
+                # No conversion needed - send humidity value as-is
+                # #region agent log
+                if sensor_key == "humidity":
+                    agent_debug_log("H5", "receiver.py:send_to_openhab:humidity_no_conversion", "Humidity sent as percentage (0-100 range)", {
+                        "value": value,
+                        "value_type": str(type(value))
                     })
-                    # #endregion
+                # #endregion
                 
                 # Send to OpenHAB REST API
                 url = f"{self.openhab_url}/rest/items/{item_name}/state"
