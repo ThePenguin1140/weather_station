@@ -1,0 +1,48 @@
+// RRD4J Persistence Configuration for Weather Station
+// Place this file in your OpenHAB persistence/ directory (e.g., /etc/openhab/persistence/)
+//
+// This configuration enables time series data storage for weather station sensors.
+// RRD4J stores data in Round Robin Database format, optimized for time series data.
+//
+// Strategies:
+// - everyChange: Store data whenever the value changes
+// - everyMinute: Store data every minute (even if unchanged)
+// - every5Minutes: Store data every 5 minutes
+// - everyHour: Store data every hour
+// - everyDay: Store data once per day
+//
+// You can query historical data via:
+// - REST API: GET /rest/persistence/items/{itemName}?starttime=...&endtime=...
+// - Rules: itemName.historicState(timestamp)
+// - Charts: Use chart widgets in the UI
+
+Strategies {
+    // Store every change (for high-frequency updates)
+    everyChange : "everyChange"
+    
+    // Store every minute (for consistent time series)
+    everyMinute : "0 * * * * ?"
+    
+    // Store every 5 minutes (for longer-term trends)
+    every5Minutes : "0 */5 * * * ?"
+    
+    // Store every hour (for daily/weekly trends)
+    everyHour : "0 0 * * * ?"
+    
+    // Store once per day (for long-term storage)
+    everyDay : "0 0 0 * * ?"
+}
+
+Items {
+    // Persist all weather station items
+    WeatherStation_Temperature* : strategy = everyChange, everyMinute, everyHour, everyDay
+    WeatherStation_Pressure* : strategy = everyChange, everyMinute, everyHour, everyDay
+    WeatherStation_Altitude* : strategy = everyChange, everyMinute, everyHour, everyDay
+    WeatherStation_Humidity* : strategy = everyChange, everyMinute, everyHour, everyDay
+    WeatherStation_WindDirection* : strategy = everyChange, everyMinute, everyHour, everyDay
+    WeatherStation_WindSpeed* : strategy = everyChange, everyMinute, everyHour, everyDay
+    
+    // Persist the entire group (alternative approach)
+    // WeatherStation* : strategy = everyChange, everyMinute, everyHour, everyDay
+}
+

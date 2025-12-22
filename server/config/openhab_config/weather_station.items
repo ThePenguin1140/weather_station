@@ -16,7 +16,7 @@ Number:Pressure WeatherStation_Pressure "Pressure [%.1f hPa]" <pressure> (Weathe
 Number:Length WeatherStation_Altitude "Altitude [%.1f m]" <altitude> (WeatherStation)
 
 // Humidity from BME280 sensor
-Number:Dimensionless WeatherStation_Humidity "Humidity [%.0f %%]" <humidity> (WeatherStation)
+Number:Dimensionless WeatherStation_Humidity "Humidity [%.0f %%]" <humidity> (WeatherStation) {unit="%"}
 
 // Wind Direction from AS5600 sensor
 Number:Angle WeatherStation_WindDirection "Wind Direction [%.0f °]" <wind> (WeatherStation)

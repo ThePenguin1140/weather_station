@@ -1,24 +1,101 @@
-// Weather Station Sitemap for OpenHAB 5.0.3
+// Weather Station Dashboard Sitemap for OpenHAB 5.0.3
 // Place this file in your OpenHAB sitemaps/ directory (e.g., /etc/openhab/sitemaps/)
-// Or add this section to your existing sitemap
 //
-// Note: In OpenHAB 5.0.3, sitemaps may not display in the main UI by default.
+// This dashboard provides a comprehensive view of weather station data including:
+// - Current conditions with large, readable displays
+// - Historical charts for trend analysis
+// - Wind information with direction visualization
+// - Environmental conditions grouped logically
+//
 // Access via Basic UI: http://your-openhab:8080/basicui/app
+// Or add to your main UI dashboard
 
-sitemap weather_station label="Weather Station" {
-    Frame label="Current Conditions" {
+sitemap weather_station label="Weather Station Dashboard" {
+    // ============================================
+    // MAIN OVERVIEW - Current Conditions
+    // ============================================
+    Frame label="Current Weather Conditions" icon="weather" {
+        // Temperature - Large display
         Text item=WeatherStation_Temperature icon="temperature"
+        
+        // Humidity - Large display
         Text item=WeatherStation_Humidity icon="humidity"
+        
+        // Pressure - Large display
         Text item=WeatherStation_Pressure icon="pressure"
+        
+        // Altitude
         Text item=WeatherStation_Altitude icon="altitude"
     }
     
-    Frame label="Wind" {
+    // ============================================
+    // WIND INFORMATION
+    // ============================================
+    Frame label="Wind Conditions" icon="wind" {
+        // Wind Speed - Prominent display
         Text item=WeatherStation_WindSpeed icon="wind"
+        
+        // Wind Direction - Shows degrees (0-360)
         Text item=WeatherStation_WindDirection icon="wind"
     }
     
-    Frame label="All Sensors" {
+    // ============================================
+    // HISTORICAL CHARTS - Temperature
+    // ============================================
+    Frame label="Temperature Trends" icon="chart" {
+        // Last 24 hours
+        Chart item=WeatherStation_Temperature period=h refresh=300
+        // Last 7 days
+        Chart item=WeatherStation_Temperature period=D refresh=3600
+        // Last 30 days
+        Chart item=WeatherStation_Temperature period=W refresh=3600
+    }
+    
+    // ============================================
+    // HISTORICAL CHARTS - Humidity
+    // ============================================
+    Frame label="Humidity Trends" icon="chart" {
+        Chart item=WeatherStation_Humidity period=h refresh=300
+        Chart item=WeatherStation_Humidity period=D refresh=3600
+        Chart item=WeatherStation_Humidity period=W refresh=3600
+    }
+    
+    // ============================================
+    // HISTORICAL CHARTS - Pressure
+    // ============================================
+    Frame label="Pressure Trends" icon="chart" {
+        Chart item=WeatherStation_Pressure period=h refresh=300
+        Chart item=WeatherStation_Pressure period=D refresh=3600
+        Chart item=WeatherStation_Pressure period=W refresh=3600
+    }
+    
+    // ============================================
+    // HISTORICAL CHARTS - Wind
+    // ============================================
+    Frame label="Wind Trends" icon="chart" {
+        // Wind Speed charts
+        Chart item=WeatherStation_WindSpeed period=h refresh=300
+        Chart item=WeatherStation_WindSpeed period=D refresh=3600
+        
+        // Wind Direction charts
+        Chart item=WeatherStation_WindDirection period=h refresh=300
+        Chart item=WeatherStation_WindDirection period=D refresh=3600
+    }
+    
+    // ============================================
+    // COMBINED ENVIRONMENTAL CHART
+    // ============================================
+    Frame label="Combined Environmental Data" icon="chart" {
+        // Multi-series chart showing temperature, humidity, and pressure together
+        Chart item=WeatherStation_Temperature period=h refresh=300
+        Chart item=WeatherStation_Humidity period=h refresh=300
+        Chart item=WeatherStation_Pressure period=h refresh=300
+    }
+    
+    // ============================================
+    // ALL SENSORS - Quick Reference
+    // ============================================
+    Frame label="All Sensors - Quick View" icon="sensors" {
         Group item=WeatherStation
     }
 }
