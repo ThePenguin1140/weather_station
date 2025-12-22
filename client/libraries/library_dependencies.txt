@@ -9,15 +9,23 @@ Install these libraries via Arduino IDE Library Manager (Sketch > Include Librar
    - Purpose: NRF24L01 wireless module communication
    - Installation: Search for "RF24" in Library Manager
 
-2. Adafruit BMP280 Library
-   - Library Name: Adafruit BMP280 Library
-   - Version: Latest (2.6.6 or newer)
-   - Purpose: BMP280 pressure, temperature, and altitude sensor
+2. Adafruit BME280 Library
+   - Library Name: Adafruit BME280 Library
+   - Version: Latest (2.2.2 or newer)
+   - Purpose: BME280 pressure, temperature, and humidity sensor
    - Dependencies: Adafruit Unified Sensor, Adafruit BusIO
-   - Installation: Search for "Adafruit BMP280" in Library Manager
+   - Installation: Search for "Adafruit BME280" in Library Manager
    - Note: Arduino IDE will automatically install dependencies
 
-3. ArduinoJson by Benoit Blanchon
+3. Adafruit AS5600 Library
+   - Library Name: Adafruit AS5600 Library
+   - Version: Latest (1.2.0 or newer)
+   - Purpose: AS5600 magnetic rotary position sensor (wind direction)
+   - Dependencies: Adafruit Unified Sensor, Adafruit BusIO
+   - Installation: Search for "Adafruit AS5600" in Library Manager
+   - Note: Arduino IDE will automatically install dependencies
+
+4. ArduinoJson by Benoit Blanchon
    - Library Name: ArduinoJson
    - Version: Latest (6.x or newer)
    - Purpose: JSON serialization for data transmission
@@ -25,7 +33,7 @@ Install these libraries via Arduino IDE Library Manager (Sketch > Include Librar
 
 Built-in Libraries (no installation needed):
 - SPI: Serial Peripheral Interface for NRF24L01
-- Wire: I2C communication for BMP280
+- Wire: I2C communication for BME280 and AS5600
 
 Installation Steps:
 1. Open Arduino IDE
@@ -38,12 +46,16 @@ Alternative Installation (Manual):
 If Library Manager doesn't work, you can install libraries manually:
 1. Download libraries from GitHub:
    - RF24: https://github.com/nRF24/RF24
-   - Adafruit BMP280: https://github.com/adafruit/Adafruit_BMP280_Library
+   - Adafruit BME280: https://github.com/adafruit/Adafruit_BME280_Library
+   - Adafruit AS5600: https://github.com/adafruit/Adafruit_AS5600
    - ArduinoJson: https://github.com/bblanchon/ArduinoJson
 2. Extract to Arduino libraries folder:
    - Windows: Documents/Arduino/libraries/
    - Mac: ~/Documents/Arduino/libraries/
    - Linux: ~/Arduino/libraries/
+
+
+
 
 
 

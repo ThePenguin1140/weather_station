@@ -15,15 +15,24 @@ Arduino-based sensor transmitter for the weather station system.
 - **MOSI**: Digital Pin 11 (SPI)
 - **MISO**: Digital Pin 12 (SPI)
 
-#### BMP280 Sensor
+#### BME280 Sensor
 - **VCC**: 3.3V
 - **GND**: Ground
 - **SDA**: A4 (I2C)
 - **SCL**: A5 (I2C)
 - **I2C Address**: 0x76 (default, can be 0x77)
+- **Note**: BME280 includes temperature, pressure, and humidity sensing
+
+#### AS5600 Sensor (Wind Direction)
+- **VCC**: 5V or 3.3V
+- **GND**: Ground
+- **SDA**: A4 (I2C)
+- **SCL**: A5 (I2C)
+- **I2C Address**: 0x36 (fixed)
+- **Note**: Requires a magnet attached to the wind vane
 
 #### Wind Speed Sensor
-- **Signal**: Analog Pin A0
+- **Signal**: Analog Pin A2
 - **VCC**: 5V or 3.3V (depending on sensor)
 - **GND**: Ground
 
@@ -51,11 +60,15 @@ Install the following libraries via Arduino IDE Library Manager:
    - Search for "RF24"
    - Install latest version
 
-2. **Adafruit BMP280 Library**
-   - Search for "Adafruit BMP280"
+2. **Adafruit BME280 Library**
+   - Search for "Adafruit BME280"
    - Install latest version (dependencies will install automatically)
 
-3. **ArduinoJson** by Benoit Blanchon
+3. **Adafruit AS5600 Library**
+   - Search for "Adafruit AS5600"
+   - Install latest version (dependencies will install automatically)
+
+4. **ArduinoJson** by Benoit Blanchon
    - Search for "ArduinoJson"
    - Install version 6.x or newer
 
@@ -75,10 +88,11 @@ Edit the following constants in `main.ino` if needed:
 
 ```cpp
 #define CE_PIN 9              // NRF24L01 CE pin
-#define CSN_PIN 10            // NRF24L01 CSN pin
+#define CSN_PIN 8             // NRF24L01 CSN pin
 #define LED_PIN 13            // Status LED pin
-#define WIND_SPEED_PIN A0     // Wind speed analog pin
-#define BMP280_ADDRESS 0x76   // BMP280 I2C address (0x76 or 0x77)
+#define WIND_SPEED_PIN A2     // Wind speed analog pin
+#define BME280_ADDRESS 0x76   // BME280 I2C address (0x76 or 0x77)
+#define AS5600_ADDRESS 0x36   // AS5600 I2C address (fixed at 0x36)
 #define TRANSMISSION_INTERVAL 5000  // Milliseconds between transmissions
 ```
 
@@ -105,15 +119,13 @@ data.windSpeed = map(data.windSpeedRaw, 0, 1023, 0, 10000) / 100.0;
 
 Adjust the range values based on your specific sensor and potentiometer configuration.
 
-### BMP280 Altitude
+### BME280 Altitude
 
-The altitude calculation uses sea level pressure. Adjust if needed:
+The altitude calculation is performed on the receiver side (Raspberry Pi) using pressure readings. The Arduino sends raw pressure in Pascals, and the receiver calculates altitude using the barometric formula.
 
-```cpp
-data.altitude = bmp.readAltitude(1013.25);  // 1013.25 hPa = standard sea level pressure
-```
+### AS5600 Wind Direction
 
-Use your local sea level pressure for more accurate readings.
+The AS5600 provides a raw angle value (0-4095) that represents the magnet position. The receiver converts this to degrees (0-360). Calibration offset can be applied in the Arduino code using `WIND_DIRECTION_OFFSET`.
 
 ## Troubleshooting
 
@@ -130,10 +142,15 @@ Open Serial Monitor (Tools > Serial Monitor) at 9600 baud to see debug messages:
    - Verify SPI connections
    - Check CE and CSN pins
 
-2. **BMP280 not found**
+2. **BME280 not found**
    - Check I2C wiring (SDA/SCL)
    - Try changing I2C address (0x76 or 0x77)
    - Verify power supply
+
+3. **AS5600 not found**
+   - Check I2C wiring (SDA/SCL)
+   - Verify magnet is properly positioned
+   - Check I2C address is 0x36
 
 3. **No data received on server**
    - Verify radio channel matches receiver
@@ -157,24 +174,21 @@ Open Serial Monitor (Tools > Serial Monitor) at 9600 baud to see debug messages:
 ## Status Indicators
 
 - **LED Blink (3 times)**: Successful initialization
-- **LED Blink (5 times)**: BMP280 initialization failed
+- **LED Blink (5 times)**: BME280 or AS5600 initialization failed
 - **LED Blink (10 times)**: NRF24L01 initialization failed
 - **LED Blink (2 times)**: Transmission failed after retries
 - **LED Toggle (500ms)**: Normal operation
 
 ## Data Format
 
-The transmitter sends JSON data:
-```json
-{
-  "temp": 25.5,
-  "pressure": 1013.25,
-  "altitude": 100.0,
-  "wind_speed": 15.5,
-  "wind_speed_raw": 158,
-  "timestamp": 1234567890
-}
-```
+The transmitter sends a packed binary struct over NRF24L01:
+- `temperature` (float, Celsius)
+- `pressure` (float, Pascals)
+- `humidity` (float, percentage)
+- `wind_direction` (uint16_t, raw angle 0-4095)
+- `wind_speed` (float, km/h)
+
+**Note**: JSON format is only used for serial debugging output. The actual wireless transmission uses a compact binary struct to stay within the NRF24L01 32-byte payload limit.
 
 ## Power Consumption
 
