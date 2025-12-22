@@ -5,7 +5,7 @@ A complete weather station system consisting of an Arduino-based sensor transmit
 ## Project Overview
 
 This monorepo contains:
-- **Client**: Arduino Nano with NRF24L01, BMP280 sensor, and wind speed sensor
+- **Client**: Arduino Nano with NRF24L01, BME280 sensor, AS5600 sensor, and wind speed sensor
 - **Server**: Raspberry Pi Python receiver with OpenHAB integration
 
 ## Hardware Components
@@ -14,7 +14,8 @@ This monorepo contains:
 - **Microcontroller**: Arduino Nano
 - **Wireless Module**: NRF24L01 (2.4GHz SPI)
 - **Sensors**:
-  - BMP280 (Pressure, Temperature, Altitude via I2C)
+  - BME280 (Pressure, Temperature, Humidity via I2C)
+  - AS5600 (Wind Direction via I2C)
   - Wind Speed Sensor (Potentiometer-based, Analog)
 - **Power**: 8V input with 3.3V buck converter regulation
 - **Status LED**: Visual indication of operation
@@ -55,21 +56,20 @@ See [server/README.md](server/README.md) for Raspberry Pi and OpenHAB setup inst
 ## Communication Protocol
 
 - **Wireless Protocol**: NRF24L01 (2.4GHz)
-- **Data Format**: JSON
+- **Data Format**: Binary struct (packed, sent over NRF24L01 due to 32-byte payload limit)
 - **Transmission Interval**: 5 seconds (configurable)
 - **Channel**: 76 (configurable)
 
 ### Data Structure
-```json
-{
-  "temp": 25.5,
-  "pressure": 1013.25,
-  "altitude": 100.0,
-  "wind_speed": 15.5,
-  "wind_speed_raw": 158,
-  "timestamp": 1234567890
-}
-```
+
+The Arduino transmits a packed binary struct containing:
+- `temperature` (float, Celsius)
+- `pressure` (float, Pascals)
+- `humidity` (float, percentage)
+- `wind_direction` (uint16_t, raw angle 0-4095)
+- `wind_speed` (float, km/h)
+
+**Note**: JSON format is only used for serial debugging output. The actual wireless transmission uses a compact binary struct to stay within the NRF24L01 32-byte payload limit. The Python receiver parses this binary format using `struct.unpack("<fffHf", data_bytes)`.
 
 ## Features
 
