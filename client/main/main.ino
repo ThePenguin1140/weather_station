@@ -55,8 +55,8 @@ unsigned long lastTransmission = 0;
 unsigned long lastLEDToggle = 0;
 bool ledState = false;
 
-// Sensor data structure
-struct SensorData {
+// Sensor data structure (packed to match Python struct.unpack format)
+struct __attribute__((packed)) SensorData {
   float temperature;         // Raw temperature in Celsius
   float pressure;            // Raw pressure in Pascals
   float humidity;            // Raw humidity in %
