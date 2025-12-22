@@ -2,7 +2,7 @@
   "radio_ce_pin": 22,
   "radio_csn_pin": 0,
   "radio_channel": 76,
-  "openhab_url": "http://localhost:8080",
+  "openhab_url": "http://weatherstation:8080",
   "openhab_items": {
     "temp": "WeatherStation_Temperature",
     "pressure_hpa": "WeatherStation_Pressure",
@@ -13,6 +13,9 @@
   },
   "sea_level_pressure": 1013.25
 }
+// Note: The receiver receives "pressure" in Pascals and calculates "pressure_hpa"
+// before sending to OpenHAB. The mapping uses "pressure_hpa" which is added
+// to the processed_data dictionary by process_sensor_data().
 
 
 
