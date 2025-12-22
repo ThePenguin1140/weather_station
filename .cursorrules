@@ -279,6 +279,24 @@ When helping with this project:
 9. Check logs when debugging service issues
 10. Use `execute_command.py` utility for complex SSH operations
 
+## Automatic Documentation References
+
+**IMPORTANT**: When using the Debug agent or any debugging/deployment-related tasks, ALWAYS automatically reference these documentation files without requiring the user to mention them:
+
+1. **`server/DEBUGGING.md`** - Comprehensive debugging procedures, log viewing, service troubleshooting
+2. **`server/DEPLOYMENT.md`** - Deployment procedures, verification steps, troubleshooting
+3. **`AGENT_WORKFLOWS.md`** - Natural language prompt examples and command mappings
+
+These files should be automatically included in the agent's context for:
+- Any debugging tasks
+- Deployment-related questions
+- Service troubleshooting
+- Log analysis requests
+- Configuration issues
+- Any task that might benefit from these references
+
+The agent should proactively reference these files and use them as the primary source of information rather than asking the user to mention them.
+
 ## Context Switching
 
 - **Local Context**: Windows PowerShell, project root directory
