@@ -603,6 +603,7 @@ def deploy_files(
         'weather_station.items': f'{remote_base_dir}/items/weather_station.items',
         'weather_station.sitemap': f'{remote_base_dir}/sitemaps/weather_station.sitemap',
         'weather_station.rules': f'{remote_base_dir}/rules/weather_station.rules',
+        'rrd4j.persist': f'{remote_base_dir}/persistence/rrd4j.persist',
     }
     deployed_count = 0
     
@@ -773,11 +774,12 @@ def deploy_files(
         
         # Update file mappings to use actual config directory
         # Note: OPENHAB_CONF already points to the config directory (e.g., /etc/openhab)
-        # which contains items/, sitemaps/, rules/ subdirectories directly
+        # which contains items/, sitemaps/, rules/, persistence/ subdirectories directly
         file_mappings = {
             'weather_station.items': f'{actual_config_base}/items/weather_station.items',
             'weather_station.sitemap': f'{actual_config_base}/sitemaps/weather_station.sitemap',
             'weather_station.rules': f'{actual_config_base}/rules/weather_station.rules',
+            'rrd4j.persist': f'{actual_config_base}/persistence/rrd4j.persist',
         }
         # #region agent log
         log_debug("deploy_openhab.py:deploy_files", "File mappings updated", {
@@ -806,7 +808,8 @@ def deploy_files(
             for dir_path in [
                 f"{actual_config_base}/items",
                 f"{actual_config_base}/sitemaps",
-                f"{actual_config_base}/rules"
+                f"{actual_config_base}/rules",
+                f"{actual_config_base}/persistence"
             ]:
                 # #region agent log
                 log_debug("deploy_openhab.py:deploy_files", "Creating directory", {"dir_path": dir_path}, "A")
