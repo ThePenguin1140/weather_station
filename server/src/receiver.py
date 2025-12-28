@@ -27,39 +27,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global flag to control agent debug logging (enabled for debugging session)
-_agent_debug_enabled = True
-
-
-def agent_debug_log(hypothesis_id: str, location: str, message: str, data: Dict[str, Any]) -> None:
-    """Append a single NDJSON debug log line for this debug session."""
-    if not _agent_debug_enabled:
-        return
-    try:
-        log_entry = {
-            "sessionId": "debug-session",
-            "runId": "pre-fix",
-            "hypothesisId": hypothesis_id,
-            "location": location,
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        import os
-        # Use relative path that works on both Windows and Linux
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        debug_log_path = os.path.join(script_dir, "..", "..", ".cursor", "debug.log")
-        debug_log_path = os.path.normpath(debug_log_path)
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
-        with open(debug_log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry))
-            f.write("\n")
-    except Exception as e:
-        # Log error but don't break main flow
-        logger.debug(f"Debug logging failed: {e}")
-        pass
-
 
 class WeatherStationReceiver:
     """Receiver for weather station sensor data via NRF24L01"""
@@ -118,56 +85,20 @@ class WeatherStationReceiver:
         Returns:
             Raw payload bytes or None if timeout
         """
-        # #region agent log
-        agent_debug_log("H1", "receiver.py:receive_data:entry", "receive_data called", {"timeout": timeout})
-        # #endregion
         if self.radio.available():
-            # #region agent log
-            agent_debug_log("H1", "receiver.py:receive_data:available", "Radio has data available", {})
-            # #endregion
             # Read payload
             payload_size = self.radio.getDynamicPayloadSize()
-            # #region agent log
-            agent_debug_log("H1", "receiver.py:receive_data:payload_size", "Got payload size", {"payload_size": payload_size, "type": str(type(payload_size))})
-            # #endregion
             if payload_size > 0:
-                # #region agent log
-                agent_debug_log("H2", "receiver.py:receive_data:before_read", "Before read() call", {"payload_size": payload_size, "read_method": str(type(self.radio.read))})
-                # #endregion
                 buffer = bytearray(payload_size)
-                # #region agent log
-                agent_debug_log("H2", "receiver.py:receive_data:buffer_created", "Buffer created", {"buffer_len": len(buffer), "buffer_type": str(type(buffer))})
-                # #endregion
                 try:
-                    # #region agent log
-                    agent_debug_log("H3", "receiver.py:receive_data:read_attempt", "Attempting read with buffer", {"calling_with": "buffer, payload_size"})
-                    # #endregion
                     self.radio.read(buffer, payload_size)
-                    # #region agent log
-                    agent_debug_log("H3", "receiver.py:receive_data:read_success", "Read succeeded with buffer method", {"buffer_after": buffer.hex()})
-                    # #endregion
                 except TypeError as e:
-                    # #region agent log
-                    agent_debug_log("H4", "receiver.py:receive_data:read_error", "Read failed with buffer method", {"error": str(e), "error_type": type(e).__name__})
-                    # #endregion
                     # Try alternative API: read(length) -> bytearray
-                    # #region agent log
-                    agent_debug_log("H4", "receiver.py:receive_data:read_alt_attempt", "Trying read(length) API", {"payload_size": payload_size})
-                    # #endregion
                     result = self.radio.read(payload_size)
-                    # #region agent log
-                    agent_debug_log("H4", "receiver.py:receive_data:read_alt_success", "Read succeeded with length-only API", {"result_type": str(type(result)), "result_len": len(result), "result_hex": result.hex()})
-                    # #endregion
                     buffer = result
                 data_bytes = bytes(buffer)
-                # #region agent log
-                agent_debug_log("H1", "receiver.py:receive_data:return", "Returning payload bytes", {"payload_size": len(data_bytes), "payload_hex": data_bytes.hex()})
-                # #endregion
                 logger.debug(f"Received {payload_size} bytes from RF24")
                 return data_bytes
-        # #region agent log
-        agent_debug_log("H1", "receiver.py:receive_data:no_data", "No data available or payload_size <= 0", {"available": self.radio.available() if hasattr(self.radio, 'available') else 'N/A'})
-        # #endregion
         return None
     
     def parse_sensor_data(self, data_bytes: bytes) -> Optional[Dict[str, Any]]:
@@ -182,71 +113,44 @@ class WeatherStationReceiver:
         """
         try:
             expected_size = struct.calcsize("<fffHf")
-            # #region agent log
-            agent_debug_log("H1", "receiver.py:parse_sensor_data:before_unpack", "Before struct.unpack", {
-                "payload_size": len(data_bytes),
-                "expected_size": expected_size,
-                "payload_hex": data_bytes.hex() if len(data_bytes) <= 32 else data_bytes[:32].hex() + "...",
-                "struct_format": "<fffHf"
-            })
-            # #endregion
             if len(data_bytes) != expected_size:
-                logger.error(
-                    f"Received payload size mismatch: "
-                    f"{len(data_bytes)} bytes (expected exactly {expected_size} bytes). "
-                    f"This may indicate struct padding mismatch. Payload hex: {data_bytes.hex()}"
-                )
-                agent_debug_log(
-                    hypothesis_id="H1",
-                    location="receiver.py:parse_sensor_data:size_mismatch",
-                    message="Payload size mismatch",
-                    data={"payload_size": len(data_bytes), "expected_size": expected_size},
-                )
-                # Still try to parse if we have enough bytes, but log the warning
-                if len(data_bytes) < expected_size:
-                    return None
+                # Check if payload is padded with zeros (common with NRF24L01 fixed 32-byte payload)
+                is_padded = (len(data_bytes) > expected_size and 
+                            len(data_bytes) <= 32 and 
+                            all(b == 0 for b in data_bytes[expected_size:]))
+                
+                if is_padded:
+                    # NRF24L01 is padding to 32 bytes - this is normal behavior
+                    logger.debug(
+                        f"Received padded payload: {len(data_bytes)} bytes "
+                        f"(expected {expected_size} bytes, padded with zeros). "
+                        f"Using first {expected_size} bytes."
+                    )
+                else:
+                    # Actual size mismatch - could be a real problem
+                    logger.error(
+                        f"Received payload size mismatch: "
+                        f"{len(data_bytes)} bytes (expected exactly {expected_size} bytes). "
+                        f"This may indicate struct padding mismatch or transmission error. "
+                        f"Payload hex: {data_bytes.hex()}"
+                    )
+                    # Still try to parse if we have enough bytes, but log the error
+                    if len(data_bytes) < expected_size:
+                        return None
 
             temperature, pressure_pa, humidity, wind_direction_raw, wind_speed = struct.unpack(
                 "<fffHf", data_bytes[:expected_size]
             )
-            # #region agent log
-            agent_debug_log("H1", "receiver.py:parse_sensor_data:after_unpack", "After struct.unpack - all parsed values", {
-                "temperature": temperature,
-                "pressure_pa": pressure_pa,
-                "humidity": humidity,
-                "wind_direction_raw": wind_direction_raw,
-                "wind_speed": wind_speed,
-                "humidity_type": str(type(humidity)),
-                "humidity_raw_bytes": data_bytes[8:12].hex() if len(data_bytes) >= 12 else "N/A"
-            })
-            # #endregion
 
             # Validate parsed values are reasonable
             # Humidity should be 0-100%
-            # #region agent log
-            agent_debug_log("H2", "receiver.py:parse_sensor_data:before_validation", "Before humidity validation", {
-                "humidity": humidity,
-                "humidity_in_range": 0.0 <= humidity <= 100.0
-            })
-            # #endregion
             if humidity < 0.0 or humidity > 100.0:
                 logger.error(
                     f"Invalid humidity value: {humidity}% (expected 0-100%). "
                     f"Payload hex: {data_bytes[:expected_size].hex()}"
                 )
-                # #region agent log
-                agent_debug_log("H2", "receiver.py:parse_sensor_data:validation_failed", "Humidity validation failed - out of range", {
-                    "humidity": humidity,
-                    "action": "setting_to_error_value"
-                })
-                # #endregion
                 # Set to error value to skip sending
                 humidity = -999.0
-            # #region agent log
-            agent_debug_log("H2", "receiver.py:parse_sensor_data:after_validation", "After humidity validation", {
-                "humidity": humidity
-            })
-            # #endregion
             
             # Temperature should be reasonable (-50 to 60°C for weather station)
             if temperature < -50.0 or temperature > 60.0:
@@ -267,30 +171,10 @@ class WeatherStationReceiver:
                 "wind_direction": int(wind_direction_raw),
                 "wind_speed": float(wind_speed),
             }
-            # #region agent log
-            agent_debug_log("H3", "receiver.py:parse_sensor_data:data_dict", "Data dictionary created", {
-                "humidity_in_dict": data["humidity"],
-                "humidity_type": str(type(data["humidity"])),
-                "all_keys": list(data.keys())
-            })
-            # #endregion
-
-            agent_debug_log(
-                hypothesis_id="H1",
-                location="receiver.py:parse_sensor_data:final",
-                message="Parsed binary sensor data - final",
-                data=data,
-            )
 
             return data
         except struct.error as e:
             logger.error(f"Failed to unpack binary sensor data: {e}")
-            agent_debug_log(
-                hypothesis_id="H2",
-                location="receiver.py:parse_sensor_data",
-                message="Struct unpack failed",
-                data={"error": str(e), "payload_hex": data_bytes.hex()},
-            )
             return None
     
     def calculate_pressure_hpa(self, pressure_pa: float) -> float:
@@ -342,12 +226,6 @@ class WeatherStationReceiver:
         Returns:
             Dictionary with both raw and calculated values
         """
-        # #region agent log
-        agent_debug_log("H4", "receiver.py:process_sensor_data:entry", "process_sensor_data entry", {
-            "raw_humidity": raw_data.get("humidity"),
-            "raw_data_keys": list(raw_data.keys())
-        })
-        # #endregion
         processed_data = raw_data.copy()
         
         # Calculate pressure in hPa from Pascals
@@ -370,12 +248,6 @@ class WeatherStationReceiver:
         # Wind speed is already calculated on Arduino side
         # No additional processing needed
         
-        # #region agent log
-        agent_debug_log("H4", "receiver.py:process_sensor_data:exit", "process_sensor_data exit", {
-            "processed_humidity": processed_data.get("humidity"),
-            "processed_data_keys": list(processed_data.keys())
-        })
-        # #endregion
         logger.debug(f"Processed data: {processed_data}")
         return processed_data
     
@@ -396,65 +268,25 @@ class WeatherStationReceiver:
             if sensor_key in sensor_data:
                 value = sensor_data[sensor_key]
                 
-                # #region agent log
-                if sensor_key == "humidity":
-                    agent_debug_log("H5", "receiver.py:send_to_openhab:before_send", "Before sending humidity to OpenHAB", {
-                        "sensor_key": sensor_key,
-                        "item_name": item_name,
-                        "value": value,
-                        "value_type": str(type(value)),
-                        "value_as_string": str(value)
-                    })
-                # #endregion
-                
                 # Skip error values
                 if isinstance(value, float) and value == -999.0:
                     logger.warning(f"Skipping invalid {sensor_key} value")
-                    # #region agent log
-                    if sensor_key == "humidity":
-                        agent_debug_log("H5", "receiver.py:send_to_openhab:skipped", "Humidity skipped (error value)", {
-                            "value": value
-                        })
-                    # #endregion
                     continue
                 
                 # Humidity is already in percentage (0-100) range from BME280 sensor
                 # OpenHAB item Number:Dimensionless with {unit="%"} expects 0-100 range, not 0-1 ratio
                 # No conversion needed - send humidity value as-is
-                # #region agent log
-                if sensor_key == "humidity":
-                    agent_debug_log("H5", "receiver.py:send_to_openhab:humidity_no_conversion", "Humidity sent as percentage (0-100 range)", {
-                        "value": value,
-                        "value_type": str(type(value))
-                    })
-                # #endregion
                 
                 # Send to OpenHAB REST API
                 url = f"{self.openhab_url}/rest/items/{item_name}/state"
                 try:
                     value_str = str(value)
-                    # #region agent log
-                    if sensor_key == "humidity":
-                        agent_debug_log("H5", "receiver.py:send_to_openhab:http_request", "Sending humidity HTTP request", {
-                            "url": url,
-                            "value_str": value_str,
-                            "content_type": "text/plain"
-                        })
-                    # #endregion
                     response = requests.put(
                         url, 
                         data=value_str, 
                         headers={'Content-Type': 'text/plain'}, 
                         timeout=5
                     )
-                    # #region agent log
-                    if sensor_key == "humidity":
-                        agent_debug_log("H5", "receiver.py:send_to_openhab:http_response", "Humidity HTTP response", {
-                            "status_code": response.status_code,
-                            "response_ok": response.ok,
-                            "response_text": response.text[:100] if response.text else "N/A"
-                        })
-                    # #endregion
                     if response.ok:  # Accepts any 2xx status code (200, 202, etc.)
                         logger.debug(f"Sent {sensor_key}={value} to {item_name}")
                     else:
@@ -465,13 +297,6 @@ class WeatherStationReceiver:
                         success = False
                 except requests.exceptions.RequestException as e:
                     logger.error(f"Error sending {sensor_key} to OpenHAB: {e}")
-                    # #region agent log
-                    if sensor_key == "humidity":
-                        agent_debug_log("H5", "receiver.py:send_to_openhab:error", "Humidity send error", {
-                            "error": str(e),
-                            "error_type": type(e).__name__
-                        })
-                    # #endregion
                     success = False
         
         return success
@@ -537,7 +362,6 @@ def load_config(config_path: str = 'config.json') -> Dict[str, Any]:
 
 def main():
     """Main entry point"""
-    global _agent_debug_enabled
     import argparse
     
     parser = argparse.ArgumentParser(description='Weather Station Receiver')
@@ -546,17 +370,7 @@ def main():
         default='config.json',
         help='Path to configuration file (default: config.json)'
     )
-    parser.add_argument(
-        '--debug-log',
-        action='store_true',
-        help='Enable agent debug logging to debug.log (disabled by default)'
-    )
     args = parser.parse_args()
-    
-    # Set agent debug logging flag
-    _agent_debug_enabled = args.debug_log
-    if _agent_debug_enabled:
-        logger.info("Agent debug logging enabled (writing to debug.log)")
     
     # Load configuration
     config = load_config(args.config)
