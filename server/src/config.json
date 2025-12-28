@@ -13,9 +13,6 @@
   },
   "sea_level_pressure": 1013.25
 }
-// Note: The receiver receives "pressure" in Pascals and calculates "pressure_hpa"
-// before sending to OpenHAB. The mapping uses "pressure_hpa" which is added
-// to the processed_data dictionary by process_sensor_data().
 
 
 
