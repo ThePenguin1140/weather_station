@@ -12,7 +12,6 @@ import argparse
 from pathlib import Path
 import paramiko
 from scp import SCPClient
-import json
 import re
 import time
 
@@ -51,27 +50,6 @@ def parse_ssh_config(config_path, host='server-deploy'):
     return config
 
 
-def log_debug(location, message, data=None, hypothesis_id=None):
-    """Write debug log entry to NDJSON file."""
-    # #region agent log
-    log_entry = {
-        "sessionId": "debug-session",
-        "runId": "deploy-run",
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data or {},
-        "timestamp": int(time.time() * 1000)
-    }
-    log_path = Path(__file__).parent.parent / ".cursor" / "debug.log"
-    try:
-        with open(log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(log_entry) + '\n')
-    except Exception:
-        pass  # Silently fail if logging fails
-    # #endregion
-
-
 def execute_ssh_command(ssh, command):
     """
     Execute a command via SSH and return the result.
@@ -83,21 +61,10 @@ def execute_ssh_command(ssh, command):
     Returns:
         tuple: (exit_status, stdout_text, stderr_text) where stdout_text and stderr_text are decoded strings
     """
-    # #region agent log
-    log_debug("deploy_openhab.py:execute_ssh_command", "Executing SSH command", {"command": command}, "A")
-    # #endregion
     stdin, stdout, stderr = ssh.exec_command(command)
     exit_status = stdout.channel.recv_exit_status()
     stdout_text = stdout.read().decode()
     stderr_text = stderr.read().decode()
-    # #region agent log
-    log_debug("deploy_openhab.py:execute_ssh_command", "SSH command result", {
-        "command": command,
-        "exit_status": exit_status,
-        "stdout": stdout_text[:500],  # Limit size
-        "stderr": stderr_text[:500]
-    }, "A")
-    # #endregion
     return exit_status, stdout_text, stderr_text
 
 
@@ -195,17 +162,6 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
     Returns:
         bool: True if deployment and restart succeeded, False otherwise
     """
-    log_debug(
-        "deploy_openhab.py:deploy_receiver_service",
-        "Starting receiver deployment",
-        {
-            "remote_dir": remote_dir,
-            "service_name": service_name,
-            "deploy_config": deploy_config,
-        },
-        "R",
-    )
-
     receiver_src_dir = project_root / "server" / "src"
     # Always deploy receiver.py; only deploy config.json when explicitly requested.
     receiver_files = ["receiver.py"]
@@ -223,12 +179,6 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
             "Receiver deployment skipped: missing local files: "
             + ", ".join(missing_files)
         )
-        log_debug(
-            "deploy_openhab.py:deploy_receiver_service",
-            "Missing local receiver files",
-            {"missing_files": missing_files},
-            "R",
-        )
         return False
 
     print("\nDeploying receiver application files...")
@@ -238,12 +188,6 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
     exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, mkdir_cmd)
     if exit_status != 0:
         print(f"  Warning: Failed to create receiver directory {remote_dir}: {stderr_text}")
-        log_debug(
-            "deploy_openhab.py:deploy_receiver_service",
-            "Receiver directory creation failed",
-            {"remote_dir": remote_dir, "error": stderr_text},
-            "R",
-        )
         return False
 
     scp = SCPClient(ssh.get_transport())
@@ -252,16 +196,6 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
         for filename in receiver_files:
             local_path = receiver_src_dir / filename
             remote_path = f"{remote_dir.rstrip('/')}/{filename}"
-
-            log_debug(
-                "deploy_openhab.py:deploy_receiver_service",
-                "Deploying receiver file",
-                {
-                    "local_path": str(local_path),
-                    "remote_path": remote_path,
-                },
-                "R",
-            )
 
             if not local_path.exists():
                 print(f"  Warning: {local_path} not found, skipping...")
@@ -272,20 +206,8 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
                 scp.put(str(local_path), remote_path)
                 print(f"    ✓ Successfully deployed {filename}")
                 deployed_count += 1
-                log_debug(
-                    "deploy_openhab.py:deploy_receiver_service",
-                    "SCP put successful",
-                    {"remote_path": remote_path},
-                    "R",
-                )
             except Exception as e:
                 print(f"    ✗ SCP failed for {filename}: {e}")
-                log_debug(
-                    "deploy_openhab.py:deploy_receiver_service",
-                    "SCP put failed",
-                    {"remote_path": remote_path, "error": str(e)},
-                    "R",
-                )
                 return False
     finally:
         try:
@@ -298,38 +220,14 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
     if requirements_path.exists():
         requirements_remote_path = f"{remote_dir.rstrip('/')}/requirements.txt"
         print("\nDeploying receiver Python requirements...")
-        log_debug(
-            "deploy_openhab.py:deploy_receiver_service",
-            "Deploying requirements.txt for receiver",
-            {
-                "local_path": str(requirements_path),
-                "remote_path": requirements_remote_path,
-            },
-            "R",
-        )
 
         scp = SCPClient(ssh.get_transport())
         try:
             scp.put(str(requirements_path), requirements_remote_path)
             print(f"  ✓ requirements.txt -> {requirements_remote_path}")
-            log_debug(
-                "deploy_openhab.py:deploy_receiver_service",
-                "requirements.txt SCP put successful",
-                {"remote_path": requirements_remote_path},
-                "R",
-            )
         except Exception as e:
             deps_ok = False
             print(f"  Warning: Failed to deploy requirements.txt: {e}")
-            log_debug(
-                "deploy_openhab.py:deploy_receiver_service",
-                "requirements.txt SCP put failed",
-                {
-                    "remote_path": requirements_remote_path,
-                    "error": str(e),
-                },
-                "R",
-            )
         finally:
             try:
                 scp.close()
@@ -348,18 +246,6 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
                 f"(test -x {python_bin} || python3 -m venv .venv)"
             )
             exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, venv_cmd)
-            log_debug(
-                "deploy_openhab.py:deploy_receiver_service",
-                "Receiver venv ensure command finished",
-                {
-                    "command": venv_cmd,
-                    "exit_status": exit_status,
-                    "stdout": stdout_text[:500],
-                    "stderr": stderr_text[:500],
-                    "venv_dir": venv_dir,
-                },
-                "R",
-            )
 
             if exit_status != 0:
                 deps_ok = False
@@ -391,18 +277,6 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
                 )
                 exit_status, stdout_text, stderr_text = execute_ssh_command(
                     ssh, pip_cmd
-                )
-                log_debug(
-                    "deploy_openhab.py:deploy_receiver_service",
-                    "Receiver dependency install command finished",
-                    {
-                        "command": pip_cmd,
-                        "exit_status": exit_status,
-                        "stdout": stdout_text[:500],
-                        "stderr": stderr_text[:500],
-                        "venv_dir": venv_dir,
-                    },
-                    "R",
                 )
 
                 if exit_status == 0:
@@ -436,22 +310,10 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
             "  Warning: server/requirements.txt not found locally; "
             "receiver dependencies were not installed on the server."
         )
-        log_debug(
-            "deploy_openhab.py:deploy_receiver_service",
-            "Local requirements.txt missing",
-            {"requirements_path": str(requirements_path)},
-            "R",
-        )
 
     # Restart the existing service (assumes it was created as per SETUP_DEPLOY_USER.md)
     if deployed_count > 0 and restart_service:
         print(f"\nRestarting receiver service '{service_name}'...")
-        log_debug(
-            "deploy_openhab.py:deploy_receiver_service",
-            "Restarting receiver service",
-            {"service_name": service_name},
-            "R",
-        )
         restart_cmd = f"sudo systemctl restart {service_name}"
         exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, restart_cmd)
         if exit_status != 0:
@@ -460,24 +322,12 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
                 f"  Note: The '{service_name}' service must exist on the server.\n"
                 f"        If it doesn't, create it as root per server/SETUP_DEPLOY_USER.md Step 7."
             )
-            log_debug(
-                "deploy_openhab.py:deploy_receiver_service",
-                "Service restart failed",
-                {"error": stderr_text},
-                "R",
-            )
             return False
 
         # Verify service is active after restart
         status_cmd = f"systemctl is-active {service_name}"
         exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, status_cmd)
         service_status = stdout_text.strip()
-        log_debug(
-            "deploy_openhab.py:deploy_receiver_service",
-            "Receiver service status",
-            {"status": service_status},
-            "R",
-        )
 
         if service_status == "active":
             print(f"  ✓ Receiver service '{service_name}' is active")
@@ -514,9 +364,9 @@ def deploy_files(
     receiver_remote_dir="~/weather_station/server/src",
     receiver_service_name="weather-station",
     deploy_openhab_config=True,
-    deploy_receiver_config=False,
-    deploy_openhabian_conf=False,
-):
+        deploy_receiver_config=False,
+        deploy_openhabian_conf=False,
+    ):
     """
     Deploy OpenHAB configuration files and receiver application to the server.
     
@@ -545,33 +395,8 @@ def deploy_files(
         deploy_openhabian_conf: Whether to deploy openhabian.conf to the remote host
             (off by default)
     """
-    # #region agent log
-    log_debug(
-        "deploy_openhab.py:deploy_files",
-        "Starting deployment",
-        {
-            "ssh_config_path": str(ssh_config_path),
-            "local_config_dir": local_config_dir,
-            "remote_base_dir": remote_base_dir,
-            "restart_service": restart_service,
-            "host": host,
-            "deploy_receiver": deploy_receiver,
-            "receiver_remote_dir": receiver_remote_dir,
-            "receiver_service_name": receiver_service_name,
-            "deploy_openhab_config": deploy_openhab_config,
-            "deploy_receiver_config": deploy_receiver_config,
-            "deploy_openhabian_conf": deploy_openhabian_conf,
-        },
-        "A",
-    )
-    # #endregion
-    
     # Parse SSH config
     ssh_config = parse_ssh_config(ssh_config_path, host=host)
-    
-    # #region agent log
-    log_debug("deploy_openhab.py:deploy_files", "SSH config parsed", {"ssh_config": ssh_config}, "A")
-    # #endregion
     
     if not ssh_config:
         print(f"Error: Host '{host}' not found in SSH config file: {ssh_config_path}")
@@ -585,14 +410,6 @@ def deploy_files(
     project_root = Path(__file__).parent.parent
     local_config_path = project_root / local_config_dir
     keyfile_path = project_root / ssh_config['keyfile']
-    
-    # #region agent log
-    log_debug("deploy_openhab.py:deploy_files", "Paths resolved", {
-        "local_config_path": str(local_config_path),
-        "keyfile_path": str(keyfile_path),
-        "keyfile_exists": keyfile_path.exists()
-    }, "A")
-    # #endregion
     
     if not keyfile_path.exists():
         print(f"Error: SSH key file not found: {keyfile_path}")
@@ -690,14 +507,6 @@ def deploy_files(
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     
     try:
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "Attempting SSH connection", {
-            "hostname": ssh_config['hostname'],
-            "username": ssh_config['user'],
-            "port": ssh_config.get('port', 22)
-        }, "A")
-        # #endregion
-        
         ssh.connect(
             hostname=ssh_config['hostname'],
             username=ssh_config['user'],
@@ -706,51 +515,25 @@ def deploy_files(
             timeout=10
         )
         print("Connected successfully!")
-        
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "SSH connection successful", {}, "A")
-        # #endregion
 
         # Safety check: ensure the remote user does NOT have unrestricted sudo.
         ensure_restricted_sudo(ssh, expected_user=ssh_config.get('user'))
         
-        # Check OpenHAB version and actual config directory (Hypothesis B, G)
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "Checking OpenHAB installation", {}, "B")
-        # #endregion
+        # Check OpenHAB version and actual config directory
         exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, "which openhab || which openhab-runtime || echo 'not-found'")
         openhab_path = stdout_text.strip()
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "OpenHAB binary path", {"openhab_path": openhab_path}, "B")
-        # #endregion
         
         # Check actual OpenHAB config directory
         exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, "ls -la /etc/openhab 2>/dev/null && echo 'EXISTS' || ls -la /var/lib/openhab 2>/dev/null && echo 'EXISTS_VARLIB' || ls -la /usr/share/openhab 2>/dev/null && echo 'EXISTS_USRSHARE' || echo 'NOT_FOUND'")
         config_check = stdout_text.strip()
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "OpenHAB config directory check", {
-            "config_check": config_check,
-            "remote_base_dir": remote_base_dir
-        }, "B")
-        # #endregion
         
-        # Check OpenHAB 3.x userdata directory (Hypothesis B)
+        # Check OpenHAB 3.x userdata directory
         exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, "ls -la /var/lib/openhab 2>/dev/null && echo 'EXISTS_VARLIB_CONF' || echo 'NOT_FOUND'")
         var_lib_conf_check = stdout_text.strip()
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "OpenHAB userdata config check", {
-            "var_lib_conf_check": var_lib_conf_check
-        }, "B")
-        # #endregion
         
         # Check which directory OpenHAB is actually using
         exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, "cat /etc/default/openhab 2>/dev/null | grep OPENHAB_USERDATA || cat /etc/default/openhab2 2>/dev/null | grep OPENHAB_USERDATA || echo 'NOT_FOUND'")
         openhab_userdata = stdout_text.strip()
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "OpenHAB userdata environment variable", {
-            "openhab_userdata": openhab_userdata
-        }, "B")
-        # #endregion
         
         # Determine actual config directory, preferring OPENHAB_CONF env var if set
         # Otherwise use the remote_base_dir parameter (defaults to /etc/openhab)
@@ -758,19 +541,9 @@ def deploy_files(
         openhab_conf_env = stdout_text.strip()
         if openhab_conf_env:
             actual_config_base = openhab_conf_env
-            # #region agent log
-            log_debug("deploy_openhab.py:deploy_files", "Using OPENHAB_CONF env var", {
-                "actual_config_base": actual_config_base
-            }, "B")
-            # #endregion
         else:
             # Use the remote_base_dir parameter (defaults to /etc/openhab)
             actual_config_base = remote_base_dir
-            # #region agent log
-            log_debug("deploy_openhab.py:deploy_files", "Using specified config directory", {
-                "actual_config_base": actual_config_base
-            }, "B")
-            # #endregion
         
         # Update file mappings to use actual config directory
         # Note: OPENHAB_CONF already points to the config directory (e.g., /etc/openhab)
@@ -781,26 +554,14 @@ def deploy_files(
             'weather_station.rules': f'{actual_config_base}/rules/weather_station.rules',
             'rrd4j.persist': f'{actual_config_base}/persistence/rrd4j.persist',
         }
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "File mappings updated", {
-            "file_mappings": file_mappings,
-            "actual_config_base": actual_config_base
-        }, "B")
-        # #endregion
         
-        # Check OpenHAB service status (Hypothesis F)
+        # Check OpenHAB service status
         exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, "sudo systemctl is-active openhab 2>&1 || sudo systemctl is-active openhab.service 2>&1 || echo 'unknown'")
         service_status = stdout_text.strip()
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "OpenHAB service status", {"service_status": service_status}, "F")
-        # #endregion
         
         # Create temp directory parent (home) used by both OpenHAB deploy and receiver
         exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, "echo $HOME")
         home_dir = stdout_text.strip()
-        # #region agent log
-        log_debug("deploy_openhab.py:deploy_files", "Home directory retrieved", {"home_dir": home_dir}, "A")
-        # #endregion
 
         if deploy_openhab_config:
             # Create remote directories if they don't exist
@@ -811,50 +572,23 @@ def deploy_files(
                 f"{actual_config_base}/rules",
                 f"{actual_config_base}/persistence"
             ]:
-                # #region agent log
-                log_debug("deploy_openhab.py:deploy_files", "Creating directory", {"dir_path": dir_path}, "A")
-                # #endregion
                 exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, f"mkdir -p {dir_path}")
                 if exit_status != 0:
                     error = stderr_text
                     print(f"  Warning: Failed to create {dir_path}: {error}")
-                    # #region agent log
-                    log_debug("deploy_openhab.py:deploy_files", "Directory creation failed", {
-                        "dir_path": dir_path,
-                        "error": error
-                    }, "A")
-                    # #endregion
             
             # Deploy OpenHAB configuration files using SCP
             print("\nDeploying OpenHAB configuration files...")
             scp = SCPClient(ssh.get_transport())
             
             temp_dir = f"{home_dir}/.openhab-deploy-tmp"
-            # #region agent log
-            log_debug("deploy_openhab.py:deploy_files", "Creating temp directory", {"temp_dir": temp_dir}, "A")
-            # #endregion
             exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, f"mkdir -p {temp_dir}")
             if exit_status != 0:
                 error = stderr_text
                 print(f"  Warning: Failed to create temp directory {temp_dir}: {error}")
-                # #region agent log
-                log_debug("deploy_openhab.py:deploy_files", "Temp directory creation failed", {
-                    "temp_dir": temp_dir,
-                    "error": error
-                }, "A")
-                # #endregion
             
             for local_file, remote_path in file_mappings.items():
                 local_path = local_config_path / local_file
-                
-                # #region agent log
-                log_debug("deploy_openhab.py:deploy_files", "Processing file", {
-                    "local_file": local_file,
-                    "local_path": str(local_path),
-                    "remote_path": remote_path,
-                    "local_exists": local_path.exists()
-                }, "A")
-                # #endregion
                 
                 if not local_path.exists():
                     print(f"  Warning: {local_file} not found, skipping...")
@@ -864,21 +598,9 @@ def deploy_files(
                 
                 # Copy to temp location in user's home directory
                 temp_path = f"{temp_dir}/{local_file}"
-                # #region agent log
-                log_debug("deploy_openhab.py:deploy_files", "SCP put to temp", {
-                    "local_path": str(local_path),
-                    "temp_path": temp_path
-                }, "A")
-                # #endregion
                 try:
                     scp.put(str(local_path), temp_path)
-                    # #region agent log
-                    log_debug("deploy_openhab.py:deploy_files", "SCP put successful", {"temp_path": temp_path}, "A")
-                    # #endregion
                 except Exception as e:
-                    # #region agent log
-                    log_debug("deploy_openhab.py:deploy_files", "SCP put failed", {"error": str(e)}, "A")
-                    # #endregion
                     print(f"    ✗ SCP failed for {local_file}: {e}")
                     continue
                 
@@ -886,70 +608,30 @@ def deploy_files(
                 copy_cmd = f"cp {temp_path} {remote_path} && chmod 644 {remote_path} && rm {temp_path}"
                 exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
                 
-                # #region agent log
-                log_debug("deploy_openhab.py:deploy_files", "File copy command executed", {
-                    "local_file": local_file,
-                    "remote_path": remote_path,
-                    "exit_status": exit_status
-                }, "A")
-                # #endregion
-                
                 if exit_status == 0:
                     print(f"    ✓ Successfully deployed {local_file}")
                     deployed_count += 1
                     
-                    # Verify file exists and check permissions (Hypothesis C)
+                    # Verify file exists and check permissions
                     exit_status, stdout_text2, stderr_text2 = execute_ssh_command(ssh, f"ls -la {remote_path} 2>&1")
                     file_info = stdout_text2.strip()
-                    # #region agent log
-                    log_debug("deploy_openhab.py:deploy_files", "File verification", {
-                        "local_file": local_file,
-                        "remote_path": remote_path,
-                        "file_info": file_info
-                    }, "C")
-                    # #endregion
                     
                     # Check if OpenHAB user can read the file
                     exit_status, stdout_text3, stderr_text3 = execute_ssh_command(ssh, f"sudo -u openhab test -r {remote_path} && echo 'READABLE' || echo 'NOT_READABLE'")
                     readable_check = stdout_text3.strip()
-                    # #region agent log
-                    log_debug("deploy_openhab.py:deploy_files", "OpenHAB user readability check", {
-                        "local_file": local_file,
-                        "remote_path": remote_path,
-                        "readable": readable_check
-                    }, "C")
-                    # #endregion
                 else:
                     error = stderr_text
                     print(f"    ✗ Failed to deploy {local_file}: {error}")
-                    # #region agent log
-                    log_debug("deploy_openhab.py:deploy_files", "File deployment failed", {
-                        "local_file": local_file,
-                        "remote_path": remote_path,
-                        "error": error
-                    }, "A")
-                    # #endregion
             
             scp.close()
         
         # Restart OpenHAB service (passwordless sudo via sudoers configuration)
         if deploy_openhab_config and restart_service and deployed_count > 0:
             print("\nRestarting OpenHAB service...")
-            # #region agent log
-            log_debug("deploy_openhab.py:deploy_files", "Restarting OpenHAB service", {
-                "deployed_count": deployed_count
-            }, "D")
-            # #endregion
             
             exit_status, stdout_text, stderr_text = execute_ssh_command(
                 ssh, "sudo systemctl restart openhab"
             )
-            
-            # #region agent log
-            log_debug("deploy_openhab.py:deploy_files", "Service restart command executed", {
-                "exit_status": exit_status
-            }, "D")
-            # #endregion
             
             if exit_status == 0:
                 print("  ✓ OpenHAB service restarted successfully")
@@ -957,63 +639,25 @@ def deploy_files(
                 time.sleep(2)
                 exit_status, stdout_text2, stderr_text2 = execute_ssh_command(ssh, "sudo systemctl is-active openhab 2>&1")
                 final_status = stdout_text2.strip()
-                # #region agent log
-                log_debug("deploy_openhab.py:deploy_files", "Service status after restart", {
-                    "final_status": final_status
-                }, "D")
-                # #endregion
             else:
                 error = stderr_text
                 print(f"  ✗ Failed to restart OpenHAB service: {error}")
-                # #region agent log
-                log_debug("deploy_openhab.py:deploy_files", "Service restart failed", {
-                    "error": error
-                }, "D")
-                # #endregion
         
         if deploy_openhab_config:
             # Final verification: Check if files are actually in the expected location
-            # #region agent log
-            log_debug(
-                "deploy_openhab.py:deploy_files",
-                "Final file existence check",
-                {},
-                "A",
-            )
-            # #endregion
             for local_file, remote_path in file_mappings.items():
                 exit_status, stdout_text, stderr_text = execute_ssh_command(
                     ssh,
                     f"test -f {remote_path} && echo 'EXISTS' || echo 'MISSING'",
                 )
                 exists_check = stdout_text.strip()
-                # #region agent log
-                log_debug(
-                    "deploy_openhab.py:deploy_files",
-                    "Final file check",
-                    {
-                        "local_file": local_file,
-                        "remote_path": remote_path,
-                        "exists": exists_check,
-                    },
-                    "A",
-                )
-                # #endregion
 
-                # Check for syntax errors in rules/items files (Hypothesis E)
+                # Check for syntax errors in rules/items files
                 if local_file.endswith('.rules') or local_file.endswith('.items'):
                     exit_status, stdout_text2, stderr_text2 = execute_ssh_command(
                         ssh, f"head -5 {remote_path} 2>&1"
                     )
                     file_preview = stdout_text2.strip()[:200]
-                    # #region agent log
-                    log_debug(
-                        "deploy_openhab.py:deploy_files",
-                        "File content preview",
-                        {"local_file": local_file, "preview": file_preview},
-                        "E",
-                    )
-                    # #endregion
 
         # Resolve receiver remote directory (expand ~ to home if needed)
         receiver_remote_dir_resolved = receiver_remote_dir
@@ -1034,36 +678,15 @@ def deploy_files(
                     f"  Warning: {openhabian_local_path} not found, "
                     "skipping openhabian.conf deployment."
                 )
-                log_debug(
-                    "deploy_openhab.py:deploy_files",
-                    "openhabian.conf missing locally",
-                    {"local_path": str(openhabian_local_path)},
-                    "A",
-                )
             elif not home_dir:
                 print(
                     "  Warning: could not determine remote home directory; "
                     "skipping openhabian.conf deployment."
                 )
-                log_debug(
-                    "deploy_openhab.py:deploy_files",
-                    "Remote home directory not available for openhabian.conf",
-                    {},
-                    "A",
-                )
             else:
                 scp = SCPClient(ssh.get_transport())
                 remote_openhabian_path = f"{home_dir.rstrip('/')}/openhabian.conf"
                 try:
-                    log_debug(
-                        "deploy_openhab.py:deploy_files",
-                        "Deploying openhabian.conf",
-                        {
-                            "local_path": str(openhabian_local_path),
-                            "remote_path": remote_openhabian_path,
-                        },
-                        "A",
-                    )
                     scp.put(str(openhabian_local_path), remote_openhabian_path)
                     print(
                         f"  ✓ {openhabian_local_path.name} -> "
@@ -1071,16 +694,6 @@ def deploy_files(
                     )
                 except Exception as e:
                     print(f"  ✗ Failed to deploy openhabian.conf: {e}")
-                    log_debug(
-                        "deploy_openhab.py:deploy_files",
-                        "openhabian.conf deployment failed",
-                        {
-                            "local_path": str(openhabian_local_path),
-                            "remote_path": remote_openhabian_path,
-                            "error": str(e),
-                        },
-                        "A",
-                    )
                 finally:
                     try:
                         scp.close()
