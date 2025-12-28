@@ -209,23 +209,6 @@ SensorData readSensors() {
 }
 
 void transmitData(SensorData data) {
-  // #region agent log
-  // DEBUG: Log sensor data values before JSON creation (Hypothesis D)
-  Serial.print(F("[DEBUG-HD] Sensor values - temp:"));
-  Serial.print(data.temperature);
-  Serial.print(F(" press:"));
-  Serial.print(data.pressure);
-  Serial.print(F(" humid:"));
-  Serial.print(data.humidity);
-  Serial.print(F(" windDir:"));
-  Serial.print(data.windDirection);
-  Serial.print(F(" windSpd:"));
-  Serial.print(data.windSpeed);
-  Serial.print(F(" | isValid:"));
-  bool hasNaN = isnan(data.temperature) || isnan(data.pressure) || isnan(data.humidity) || isnan(data.windSpeed);
-  Serial.println(hasNaN ? F("NO") : F("YES"));
-  // #endregion
-  
   // Log sensor data in single line format
   Serial.print(F("Sending: Temp="));
   Serial.print(data.temperature, 2);
@@ -239,20 +222,8 @@ void transmitData(SensorData data) {
   Serial.print(data.windSpeed, 2);
   Serial.println(F("km/h"));
   
-  // #region agent log
-  // DEBUG: Log JSON document capacity before creation (Hypothesis A)
-  const size_t JSON_CAPACITY = 128;
-  Serial.print(F("[DEBUG-HA] JSON capacity:"));
-  Serial.println(JSON_CAPACITY);
-  // #endregion
-  
   // Create JSON payload
   StaticJsonDocument<128> doc;  // Reduced size since we're sending less data
-  
-  // #region agent log
-  // DEBUG: Log before assignments (Hypothesis B)
-  Serial.println(F("[DEBUG-HB] Before JSON assignments"));
-  // #endregion
   
   doc["temp"] = data.temperature;
   doc["pressure"] = data.pressure;
@@ -260,71 +231,17 @@ void transmitData(SensorData data) {
   doc["wind_direction"] = data.windDirection;
   doc["wind_speed"] = data.windSpeed;
   
-  // #region agent log
-  // DEBUG: Log after assignments, check if doc has content (Hypothesis B)
-  Serial.print(F("[DEBUG-HB] After assignments | doc.size():"));
-  Serial.print(doc.size());
-  Serial.print(F(" | doc.memoryUsage():"));
-  Serial.println(doc.memoryUsage());
-  // #endregion
-  
   // Serialize JSON to string
   char payload[128];
-  
-  // #region agent log
-  // DEBUG: Log payload buffer state before serialization (Hypothesis E)
-  Serial.print(F("[DEBUG-HE] Payload buffer before serialize - first 10 bytes:"));
-  for(int i = 0; i < 10 && i < 128; i++) {
-    Serial.print(F(" "));
-    Serial.print((int)payload[i]);
-  }
-  Serial.println();
-  // #endregion
-  
   size_t payloadSize = serializeJson(doc, payload);
-  
-  // #region agent log
-  // DEBUG: Log serializeJson return value (Hypothesis C)
-  Serial.print(F("[DEBUG-HC] serializeJson returned:"));
-  Serial.print(payloadSize);
-  Serial.print(F(" | doc.overflowed():"));
-  Serial.println(doc.overflowed() ? F("YES") : F("NO"));
-  // #endregion
-  
-  // #region agent log
-  // DEBUG: Log payload buffer state after serialization (Hypothesis E)
-  Serial.print(F("[DEBUG-HE] Payload buffer after serialize - first 20 bytes:"));
-  for(int i = 0; i < 20 && i < 128; i++) {
-    if(payload[i] >= 32 && payload[i] < 127) {
-      Serial.print((char)payload[i]);
-    } else {
-      Serial.print(F("."));
-    }
-  }
-  Serial.print(F(" | full payload:"));
-  Serial.println(payload);
-  // #endregion
   
   Serial.print(F("Payload size: "));
   Serial.print(payloadSize);
   Serial.print(F(" bytes | Content: "));
   Serial.println(payload);
 
-  // #region agent log
-  // DEBUG: Log binary payload size and first bytes (Hypothesis: oversize payload caused TX failure)
-  const uint8_t binaryPayloadSize = sizeof(SensorData);
-  Serial.print(F("[DEBUG-HF] Binary payload size:"));
-  Serial.print(binaryPayloadSize);
-  Serial.print(F(" bytes | first bytes:"));
-  const uint8_t* raw = reinterpret_cast<const uint8_t*>(&data);
-  for (uint8_t i = 0; i < binaryPayloadSize && i < 16; i++) {
-    Serial.print(F(" "));
-    Serial.print(raw[i], HEX);
-  }
-  Serial.println();
-  // #endregion
-  
   // Transmit data
+  const uint8_t binaryPayloadSize = sizeof(SensorData);
   bool success = false;
   for (int i = 0; i < MAX_RETRIES && !success; i++) {
     radio.stopListening();
