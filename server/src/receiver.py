@@ -42,6 +42,8 @@ class WeatherStationReceiver:
                 - radio_channel: Radio channel (default: 76)
                 - openhab_url: OpenHAB REST API URL (default: http://localhost:8080)
                 - openhab_items: Dictionary mapping sensor names to OpenHAB item names
+                - sea_level_pressure: Sea level pressure in hPa for altitude calculation (default: 1013.25)
+                - wind_direction_offset: Offset in degrees to apply to wind direction (default: 0)
         """
         self.config = config
         self.radio = RF24(config.get('radio_ce_pin', 22), config.get('radio_csn_pin', 0))
@@ -57,6 +59,9 @@ class WeatherStationReceiver:
         
         # Sea level pressure for altitude calculation
         self.sea_level_pressure = config.get('sea_level_pressure', 1013.25)
+        
+        # Wind direction offset in degrees (for calibration)
+        self.wind_direction_offset = config.get('wind_direction_offset', 0)
         
         # Initialize radio
         if not self.radio.begin():
@@ -112,7 +117,8 @@ class WeatherStationReceiver:
             Parsed sensor data dictionary or None if parsing fails
         """
         try:
-            expected_size = struct.calcsize("<fffHf")
+            SENSOR_DATA_FORMAT = "<iIHHi"
+            expected_size = struct.calcsize(SENSOR_DATA_FORMAT)
             if len(data_bytes) != expected_size:
                 # Check if payload is padded with zeros (common with NRF24L01 fixed 32-byte payload)
                 is_padded = (len(data_bytes) > expected_size and 
@@ -138,9 +144,14 @@ class WeatherStationReceiver:
                     if len(data_bytes) < expected_size:
                         return None
 
-            temperature, pressure_pa, humidity, wind_direction_raw, wind_speed = struct.unpack(
-                "<fffHf", data_bytes[:expected_size]
+            temperature, pressure_pa, humidity, wind_direction_deg, wind_speed = struct.unpack(
+                SENSOR_DATA_FORMAT, data_bytes[:expected_size]
             )
+            temperature = temperature / 100.0
+            wind_speed = wind_speed / 100.0
+            
+            # Apply wind direction offset and wrap around 360 degrees
+            wind_direction_deg = (wind_direction_deg + self.wind_direction_offset) % 360
 
             # Validate parsed values are reasonable
             # Humidity should be 0-100%
@@ -163,12 +174,18 @@ class WeatherStationReceiver:
                 logger.warning(
                     f"Unusual pressure value: {pressure_pa}Pa (expected 80000-110000 Pa)"
                 )
+            
+            # Wind direction should be 0-360 degrees (3 digits max)
+            if wind_direction_deg < 0 or wind_direction_deg > 360:
+                logger.warning(
+                    f"Unusual wind direction value: {wind_direction_deg}° (expected 0-360°)"
+                )
 
             data: Dict[str, Any] = {
                 "temp": float(temperature),
                 "pressure": float(pressure_pa),
                 "humidity": float(humidity),
-                "wind_direction": int(wind_direction_raw),
+                "wind_direction": int(wind_direction_deg),  # Already in degrees (0-360) from Arduino
                 "wind_speed": float(wind_speed),
             }
 
@@ -207,13 +224,21 @@ class WeatherStationReceiver:
         """
         Convert raw AS5600 angle to degrees
         
+        NOTE: This function is kept for backwards compatibility, but the Arduino
+        now sends wind direction already in degrees (0-360), so no conversion is needed.
+        
         Args:
-            raw_angle: Raw angle value (0-4095)
+            raw_angle: Raw angle value (0-4095) or degrees (0-360) if already converted
             
         Returns:
             Wind direction in degrees (0-360)
         """
-        return (raw_angle / 4096.0) * 360.0
+        # Arduino now sends degrees directly, so just return as float
+        # If raw angle (0-4095) is passed, convert it
+        if raw_angle > 360:
+            return (raw_angle / 4096.0) * 360.0
+        else:
+            return float(raw_angle)
     
     def process_sensor_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -239,11 +264,10 @@ class WeatherStationReceiver:
                 self.sea_level_pressure
             )
         
-        # Calculate wind direction in degrees from raw angle
+        # Wind direction is already in degrees (0-360) from Arduino, no conversion needed
+        # Just add it as wind_direction_deg for OpenHAB compatibility
         if 'wind_direction' in raw_data:
-            processed_data['wind_direction_deg'] = self.calculate_wind_direction_deg(
-                raw_data['wind_direction']
-            )
+            processed_data['wind_direction_deg'] = float(raw_data['wind_direction'])
         
         # Wind speed is already calculated on Arduino side
         # No additional processing needed

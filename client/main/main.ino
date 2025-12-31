@@ -11,7 +11,6 @@
 #include <Wire.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_AS5600.h>
-#include <ArduinoJson.h>
 
 // NRF24L01 Pin Configuration
 #define CE_PIN 9
@@ -51,24 +50,25 @@ Adafruit_BME280 bme;
 Adafruit_AS5600 as5600;
 
 // Timing variables
-unsigned long lastTransmission = 0;
+unsigned long lastTransmission = -TRANSMISSION_INTERVAL;
 unsigned long lastLEDToggle = 0;
 bool ledState = false;
 
 // Sensor data structure (packed to match Python struct.unpack format)
+// struct size representation: <iIHHi
 struct __attribute__((packed)) SensorData {
-  float temperature;         // Raw temperature in Celsius
-  float pressure;            // Raw pressure in Pascals
-  float humidity;            // Raw humidity in %
-  uint16_t windDirection;    // Raw angle (0-4095) with calibration offset applied
-  float windSpeed;           // Calculated wind speed in km/h
+  int32_t temperature;     // Raw temperature in Celsius
+  uint32_t pressure;       // Raw pressure in Pascals
+  uint16_t humidity;       // Raw humidity in %
+  uint16_t windDirection;  // Wind direction in degrees (0-360), rounded to nearest whole degree
+  int32_t windSpeed;       // Calculated wind speed in km/h
 };
 
 void setup() {
   // Initialize Serial for debugging
   Serial.begin(9600);
   while (!Serial) {
-    ; // Wait for serial port to connect
+    ;  // Wait for serial port to connect
   }
   Serial.println(F("Weather Station Transmitter Starting..."));
 
@@ -84,14 +84,14 @@ void setup() {
       delay(1000);
     }
   }
-  
-  radio.openWritingPipe(address);     // Set the address for transmission
-  radio.setPALevel(RF24_PA_LOW);      // Set power amplifier level (LOW for better reliability)
-  radio.setDataRate(RF24_250KBPS);    // Set data rate (slower = more reliable)
-  radio.setChannel(76);               // Set RF channel (must match receiver!)
-  radio.setRetries(15, 15);           // Set auto-retry (delay, count)
-  radio.stopListening();              // Set as transmitter
-  
+
+  radio.openWritingPipe(address);   // Set the address for transmission
+  radio.setPALevel(RF24_PA_LOW);    // Set power amplifier level (LOW for better reliability)
+  radio.setDataRate(RF24_250KBPS);  // Set data rate (slower = more reliable)
+  radio.setChannel(76);             // Set RF channel (must match receiver!)
+  radio.setRetries(30, 5);          // Disable auto-retry and ACK (fire and forget)
+  radio.stopListening();            // Set as transmitter
+
   Serial.println(F("NRF24L01 initialized successfully"));
   Serial.print(F("Data Rate: "));
   Serial.println(radio.getDataRate());
@@ -112,7 +112,7 @@ void setup() {
   } else {
     Serial.println(F("BME280 initialized successfully"));
     // Configure BME280 for weather monitoring
-    bme.setSampling(Adafruit_BME280::MODE_NORMAL,     // Operating Mode
+    bme.setSampling(Adafruit_BME280::MODE_NORMAL,      // Operating Mode
                     Adafruit_BME280::SAMPLING_X2,      // Temperature oversampling
                     Adafruit_BME280::SAMPLING_X16,     // Pressure oversampling
                     Adafruit_BME280::SAMPLING_X1,      // Humidity oversampling
@@ -137,129 +137,111 @@ void setup() {
     }
   }
 
-    delay(1000);
+  delay(1000);
 
   // Initialize Wind Speed analog pin
   pinMode(WIND_SPEED_PIN, INPUT);
-  
+
   Serial.println(F("Setup complete. Starting transmission loop..."));
   blinkLED(3);  // Success indicator
 }
 
 void loop() {
   unsigned long currentTime = millis();
-  
+
   // Read sensors and transmit at configured interval
   if (currentTime - lastTransmission >= TRANSMISSION_INTERVAL) {
     SensorData data = readSensors();
     transmitData(data);
     lastTransmission = currentTime;
   }
-  
+
   // Toggle LED to indicate activity
   if (currentTime - lastLEDToggle >= 500) {
     ledState = !ledState;
     digitalWrite(LED_PIN, ledState);
     lastLEDToggle = currentTime;
   }
-  
+
   delay(10);  // Small delay to prevent watchdog issues
 }
 
 SensorData readSensors() {
   SensorData data;
-  
+
   // Read BME280 sensor
   if (bme.begin(BME280_ADDRESS)) {
-    data.temperature = bme.readTemperature();  // Raw temperature in Celsius
-    data.pressure = bme.readPressure();        // Raw pressure in Pascals (not hPa)
-    data.humidity = bme.readHumidity();        // Raw humidity in %
+    data.temperature = (int32_t)round(
+      bme.readTemperature() * 100);
+
+    data.pressure = (uint32_t)constrain(
+      bme.readPressure(),
+      0,
+      100000);
+    data.humidity = (uint16_t)constrain(
+      bme.readHumidity(),
+      0,
+      100);
   } else {
     // Set error values if sensor not available
-    data.temperature = -999.0;
-    data.pressure = -999.0;
-    data.humidity = -999.0;
+    data.temperature = -999;
+    data.pressure = 0;
+    data.humidity = 0;
     Serial.println(F("Warning: BME280 read failed"));
   }
-  
+
   // Read AS5600 (Wind Direction)
   if (as5600.begin()) {
     // Apply calibration offset to raw angle
     int rawAngle = as5600.getRawAngle();
-    data.windDirection = (rawAngle + WIND_DIRECTION_OFFSET) % 4096;
+    int calibratedRaw = (rawAngle + WIND_DIRECTION_OFFSET) % 4096;
+    // Convert to degrees (0-360) and round to nearest whole degree
+    float degrees = (calibratedRaw / 4096.0) * 360.0;
+    data.windDirection = (uint16_t)round(degrees) % 360;  // Perfect angle: 0-360 degrees, rounded
   } else {
     // Set error value if sensor not available
     data.windDirection = 0;
     Serial.println(F("Warning: AS5600 read failed"));
   }
-  
+
   // Read Wind Speed (analog sensor)
   // Apply calibration offset to raw analog reading
   int rawReading = analogRead(WIND_SPEED_PIN);
   int calibratedRaw = rawReading + WIND_SPEED_RAW_OFFSET;
   // Constrain to valid analog range
   calibratedRaw = constrain(calibratedRaw, 0, 1023);
-  
+
   // Calculate wind speed using voltage divider formula with hardware constants
   float vout = (calibratedRaw * WIND_SPEED_VIN_REF) / 1024.0;
   float vin = vout / (WIND_SPEED_R2 / (WIND_SPEED_R1 + WIND_SPEED_R2));
-  data.windSpeed = vin * WIND_SPEED_KOR;  // km/h
-  
+  data.windSpeed = (int32_t)constrain(vin * WIND_SPEED_KOR, 0, 1000) * 100;
+
   return data;
 }
 
 void transmitData(SensorData data) {
-  // Log sensor data in single line format
-  Serial.print(F("Sending: Temp="));
-  Serial.print(data.temperature, 2);
-  Serial.print(F("C | Press="));
-  Serial.print(data.pressure, 1);
-  Serial.print(F("Pa | Humid="));
-  Serial.print(data.humidity, 1);
-  Serial.print(F("% | WindDir="));
-  Serial.print(data.windDirection);
-  Serial.print(F(" | WindSpd="));
-  Serial.print(data.windSpeed, 2);
-  Serial.println(F("km/h"));
-  
-  // Create JSON payload
-  StaticJsonDocument<128> doc;  // Reduced size since we're sending less data
-  
-  doc["temp"] = data.temperature;
-  doc["pressure"] = data.pressure;
-  doc["humidity"] = data.humidity;
-  doc["wind_direction"] = data.windDirection;
-  doc["wind_speed"] = data.windSpeed;
-  
-  // Serialize JSON to string
-  char payload[128];
-  size_t payloadSize = serializeJson(doc, payload);
-  
-  Serial.print(F("Payload size: "));
-  Serial.print(payloadSize);
-  Serial.print(F(" bytes | Content: "));
-  Serial.println(payload);
-
-  // Transmit data
-  const uint8_t binaryPayloadSize = sizeof(SensorData);
+  const size_t data_size = sizeof(data);
   bool success = false;
-  for (int i = 0; i < MAX_RETRIES && !success; i++) {
-    radio.stopListening();
-    // NOTE: Send compact binary struct instead of JSON string to stay under 32-byte NRF24 payload limit
-    success = radio.write(&data, binaryPayloadSize);
-    
-    if (success) {
-      Serial.println(F("✓ Transmitted successfully"));
-    } else {
-      Serial.print(F("Transmission failed (attempt "));
-      Serial.print(i + 1);
-      Serial.println(F("), retrying..."));
-      delay(100);
-    }
-  }
-  
-  if (!success) {
-    Serial.println(F("✗ Transmission failed after max retries"));
+  radio.stopListening();
+  Serial.print(F("Transmitting | "));
+  Serial.print(data.temperature);
+  Serial.print(F(" | "));
+  Serial.print(data.pressure);
+  Serial.print(F(" | "));
+  Serial.print(data.humidity);
+  Serial.print(F(" | "));
+  Serial.print(data.windDirection);
+  Serial.print(F(" | "));
+  Serial.println(data.windSpeed);
+  // NOTE: Send compact binary struct instead of JSON string to stay under 32-byte NRF24 payload limit
+  success = radio.write(&data, data_size);
+
+  if (success) {
+    Serial.print(F("✓ Transmitted "));
+    Serial.print(data_size);
+    Serial.println(" bytes successfully");
+  } else {
+    Serial.println(F("✗ Transmission failed"));
     blinkLED(2);  // Error indicator
   }
 }
@@ -272,4 +254,3 @@ void blinkLED(int times) {
     delay(100);
   }
 }
-

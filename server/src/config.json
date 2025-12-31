@@ -11,7 +11,8 @@
     "wind_direction_deg": "WeatherStation_WindDirection",
     "wind_speed": "WeatherStation_WindSpeed"
   },
-  "sea_level_pressure": 1013.25
+  "sea_level_pressure": 1013.25,
+  "wind_direction_offset": -60.0
 }
 
 
