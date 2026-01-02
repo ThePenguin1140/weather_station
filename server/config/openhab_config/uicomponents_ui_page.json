@@ -1,0 +1,227 @@
+{
+  "home": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "home",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Dec 22, 2025, 9:16:50 PM",
+      "component": "oh-home-page",
+      "config": {
+        "label": "Home Page",
+        "simpleNavbarMobileDefault": true
+      },
+      "slots": {
+        "equipment": [
+          {
+            "component": "oh-equipment-tab",
+            "config": {},
+            "slots": {}
+          }
+        ],
+        "locations": [
+          {
+            "component": "oh-locations-tab",
+            "config": {},
+            "slots": {}
+          }
+        ],
+        "properties": [
+          {
+            "component": "oh-properties-tab",
+            "config": {},
+            "slots": {}
+          }
+        ]
+      }
+    }
+  },
+  "overview": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "overview",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Dec 23, 2025, 11:13:48 PM",
+      "component": "oh-layout-page",
+      "config": {
+        "label": "Dash",
+        "layoutType": "responsive",
+        "sidebar": true
+      },
+      "slots": {
+        "canvas": [],
+        "default": [
+          {
+            "component": "oh-block",
+            "config": {},
+            "slots": {
+              "default": [
+                {
+                  "component": "oh-grid-cells",
+                  "config": {},
+                  "slots": {
+                    "default": [
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "action": "analyzer",
+                          "actionAnalyzerChartType": "dynamic",
+                          "actionAnalyzerCoordSystem": "time",
+                          "actionAnalyzerPeriod": "12h",
+                          "actionAnalyzerItems": [
+                            "WeatherStation_WindSpeed"
+                          ],
+                          "item": "WeatherStation_WindSpeed"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "action": "analyzer",
+                          "actionAnalyzerChartType": "dynamic",
+                          "actionAnalyzerCoordSystem": "time",
+                          "actionAnalyzerPeriod": "12h",
+                          "actionAnalyzerItems": [
+                            "WeatherStation_Pressure"
+                          ],
+                          "item": "WeatherStation_Pressure"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "action": "analyzer",
+                          "actionAnalyzerChartType": "dynamic",
+                          "actionAnalyzerCoordSystem": "time",
+                          "actionAnalyzerPeriod": "12h",
+                          "actionAnalyzerItems": [
+                            "WeatherStation_Humidity"
+                          ],
+                          "item": "WeatherStation_Humidity"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "action": "analyzer",
+                          "actionAnalyzerChartType": "dynamic",
+                          "actionAnalyzerCoordSystem": "time",
+                          "actionAnalyzerPeriod": "12h",
+                          "actionAnalyzerItems": [
+                            "WeatherStation_Temperature"
+                          ],
+                          "item": "WeatherStation_Temperature"
+                        }
+                      },
+                      {
+                        "component": "widget:compass_widget",
+                        "config": {
+                          "props": {
+                            "item": "WeatherStation_WindDirection"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "grid": [],
+        "masonry": []
+      }
+    }
+  },
+  "page_0e8499f7ab": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_0e8499f7ab",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Dec 23, 2025, 5:36:31 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Temperature \u0026 Pressure ",
+        "period": "12h",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0.0,
+              "item": "WeatherStation_Temperature",
+              "name": "Temperature",
+              "type": "line",
+              "xAxisIndex": 0.0,
+              "yAxisIndex": 0.0
+            }
+          },
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0.0,
+              "item": "WeatherStation_Pressure",
+              "name": "Pressure",
+              "type": "line",
+              "xAxisIndex": 0.0,
+              "yAxisIndex": 1.0
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0.0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0.0,
+              "max": "40",
+              "min": "0"
+            }
+          },
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0.0
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -67,9 +67,7 @@ struct __attribute__((packed)) SensorData {
 void setup() {
   // Initialize Serial for debugging
   Serial.begin(9600);
-  while (!Serial) {
-    ;  // Wait for serial port to connect
-  }
+
   Serial.println(F("Weather Station Transmitter Starting..."));
 
   // Initialize Status LED
@@ -223,23 +221,23 @@ void transmitData(SensorData data) {
   const size_t data_size = sizeof(data);
   bool success = false;
   radio.stopListening();
-  Serial.print(F("Transmitting | "));
-  Serial.print(data.temperature);
-  Serial.print(F(" | "));
-  Serial.print(data.pressure);
-  Serial.print(F(" | "));
-  Serial.print(data.humidity);
-  Serial.print(F(" | "));
-  Serial.print(data.windDirection);
-  Serial.print(F(" | "));
-  Serial.println(data.windSpeed);
+  // Serial.print(F("Transmitting | "));
+  // Serial.print(data.temperature);
+  // Serial.print(F(" | "));
+  // Serial.print(data.pressure);
+  // Serial.print(F(" | "));
+  // Serial.print(data.humidity);
+  // Serial.print(F(" | "));
+  // Serial.print(data.windDirection);
+  // Serial.print(F(" | "));
+  // Serial.println(data.windSpeed);
   // NOTE: Send compact binary struct instead of JSON string to stay under 32-byte NRF24 payload limit
   success = radio.write(&data, data_size);
 
   if (success) {
-    Serial.print(F("✓ Transmitted "));
-    Serial.print(data_size);
-    Serial.println(" bytes successfully");
+    // Serial.print(F("✓ Transmitted "));
+    // Serial.print(data_size);
+    // Serial.println(" bytes successfully");
   } else {
     Serial.println(F("✗ Transmission failed"));
     blinkLED(2);  // Error indicator

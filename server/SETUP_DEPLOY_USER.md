@@ -59,10 +59,28 @@ sudo find /etc/openhab -type f -exec chmod g+r {} \;
 If the directories don't exist yet, create them with proper permissions:
 
 ```bash
-sudo mkdir -p /etc/openhab/{items,sitemaps,rules}
+sudo mkdir -p /etc/openhab/{items,sitemaps,rules,persistence}
 sudo chown -R openhab:openhab /etc/openhab
 sudo chmod -R g+w /etc/openhab
 ```
+
+**Also set up permissions for OpenHAB userdata directory (for JSONDB files like UI components):**
+
+```bash
+# Ensure jsondb directory exists and is group-writable
+sudo mkdir -p /var/lib/openhab/jsondb
+
+# Set group ownership on jsondb directory
+sudo chgrp openhab /var/lib/openhab/jsondb
+
+# Make jsondb directory group-writable
+sudo chmod g+w /var/lib/openhab/jsondb
+
+# Ensure existing files in jsondb are group-readable (if any)
+sudo find /var/lib/openhab/jsondb -type f -exec chmod g+r {} \; 2>/dev/null || true
+```
+
+**Note**: The `/var/lib/openhab` directory is typically owned by the `openhab` user. By adding the deployment user to the `openhab` group (Step 2) and making the `jsondb` subdirectory group-writable, the deployment user can deploy UI component files (`uicomponents_ui_page.json`) to this location.
 
 ## Step 4: Generate SSH Key Pair
 
@@ -250,10 +268,14 @@ You should be able to connect without a password prompt.
 Test file deployment permissions:
 
 ```bash
+# Test config directory permissions
 ssh -F .ssh/config openhab "touch /etc/openhab/items/test.txt && rm /etc/openhab/items/test.txt"
+
+# Test jsondb directory permissions (for UI components)
+ssh -F .ssh/config openhab "touch /var/lib/openhab/jsondb/test.txt && rm /var/lib/openhab/jsondb/test.txt"
 ```
 
-If this succeeds, file permissions are correct.
+If both commands succeed, file permissions are correct.
 
 Test service restart permission:
 
@@ -292,15 +314,32 @@ If you get "Permission denied" when trying to write files:
    groups openhab-deploy
    ```
 
-2. Check directory permissions:
+2. Check directory permissions for config directories:
    ```bash
    ls -ld /etc/openhab/items
    ```
    Should show group write permission (`drwxrwxr-x` or similar).
 
-3. Verify group ownership:
+3. Verify group ownership for config directories:
    ```bash
    ls -ld /etc/openhab/items | grep openhab
+   ```
+
+4. Check jsondb directory permissions (for UI components):
+   ```bash
+   ls -ld /var/lib/openhab/jsondb
+   ```
+   Should show group write permission (`drwxrwxr-x` or similar).
+
+5. Verify group ownership for jsondb directory:
+   ```bash
+   ls -ld /var/lib/openhab/jsondb | grep openhab
+   ```
+
+6. If jsondb directory permissions are incorrect, fix them:
+   ```bash
+   sudo chgrp openhab /var/lib/openhab/jsondb
+   sudo chmod g+w /var/lib/openhab/jsondb
    ```
 
 ### SSH Connection Issues

@@ -416,11 +416,14 @@ def deploy_files(
         sys.exit(1)
     
     # File mapping: local_file -> remote_path (will be updated after detecting actual config dir)
+    # Note: uicomponents_ui_page.json goes to jsondb in userdata (typically /var/lib/openhab/jsondb/)
+    # This will be updated after detecting the actual userdata directory
     file_mappings = {
         'weather_station.items': f'{remote_base_dir}/items/weather_station.items',
         'weather_station.sitemap': f'{remote_base_dir}/sitemaps/weather_station.sitemap',
         'weather_station.rules': f'{remote_base_dir}/rules/weather_station.rules',
         'rrd4j.persist': f'{remote_base_dir}/persistence/rrd4j.persist',
+        'uicomponents_ui_page.json': '/var/lib/openhab/jsondb/uicomponents_ui_page.json',  # Will be updated with actual userdata path
     }
     deployed_count = 0
     
@@ -432,6 +435,16 @@ def deploy_files(
         if deploy_openhab_config:
             print("\nWould deploy OpenHAB config files:")
             for local_file, remote_path in file_mappings.items():
+                local_path = local_config_path / local_file
+                if local_path.exists():
+                    print(f"  {local_path} -> {remote_path}")
+                else:
+                    print(f"  {local_path} -> {remote_path} (FILE NOT FOUND)")
+            print("\nWould deploy widget files:")
+            widget_mappings = {
+                'widgets/compass_widget.yaml': '/var/lib/openhab/ui/widgets/compass_widget.yaml',
+            }
+            for local_file, remote_path in widget_mappings.items():
                 local_path = local_config_path / local_file
                 if local_path.exists():
                     print(f"  {local_path} -> {remote_path}")
@@ -545,14 +558,38 @@ def deploy_files(
             # Use the remote_base_dir parameter (defaults to /etc/openhab)
             actual_config_base = remote_base_dir
         
+        # Determine OpenHAB userdata directory for JSONDB files (UI components)
+        # Default to /var/lib/openhab if not found in /etc/default/openhab
+        actual_userdata_base = "/var/lib/openhab"
+        if openhab_userdata and openhab_userdata != "NOT_FOUND":
+            # Parse OPENHAB_USERDATA from /etc/default/openhab (format: OPENHAB_USERDATA="/var/lib/openhab")
+            try:
+                # Extract the value after the = sign, handling quotes
+                parts = openhab_userdata.split("=", 1)
+                if len(parts) == 2:
+                    value = parts[1].strip().strip('"').strip("'")
+                    if value:
+                        actual_userdata_base = value
+            except Exception:
+                pass  # Use default if parsing fails
+        
         # Update file mappings to use actual config directory
         # Note: OPENHAB_CONF already points to the config directory (e.g., /etc/openhab)
         # which contains items/, sitemaps/, rules/, persistence/ subdirectories directly
+        # UI components go to jsondb directory in userdata (typically /var/lib/openhab/jsondb/)
+        # Widgets go to ui/widgets directory in userdata (typically /var/lib/openhab/ui/widgets/)
         file_mappings = {
             'weather_station.items': f'{actual_config_base}/items/weather_station.items',
             'weather_station.sitemap': f'{actual_config_base}/sitemaps/weather_station.sitemap',
             'weather_station.rules': f'{actual_config_base}/rules/weather_station.rules',
             'rrd4j.persist': f'{actual_config_base}/persistence/rrd4j.persist',
+            'uicomponents_ui_page.json': f'{actual_userdata_base}/jsondb/uicomponents_ui_page.json',
+        }
+        
+        # Widget files mapping
+        # YAML widget definition goes to ui/widgets/
+        widget_mappings = {
+            'widgets/compass_widget.yaml': f'{actual_userdata_base}/ui/widgets/compass_widget.yaml',
         }
         
         # Check OpenHAB service status
@@ -570,7 +607,9 @@ def deploy_files(
                 f"{actual_config_base}/items",
                 f"{actual_config_base}/sitemaps",
                 f"{actual_config_base}/rules",
-                f"{actual_config_base}/persistence"
+                f"{actual_config_base}/persistence",
+                f"{actual_userdata_base}/jsondb",
+                f"{actual_userdata_base}/ui/widgets"
             ]:
                 exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, f"mkdir -p {dir_path}")
                 if exit_status != 0:
@@ -605,6 +644,44 @@ def deploy_files(
                     continue
                 
                 # Copy to final location and set permissions (group permissions handle ownership)
+                copy_cmd = f"cp {temp_path} {remote_path} && chmod 644 {remote_path} && rm {temp_path}"
+                exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
+                
+                if exit_status == 0:
+                    print(f"    ✓ Successfully deployed {local_file}")
+                    deployed_count += 1
+                    
+                    # Verify file exists and check permissions
+                    exit_status, stdout_text2, stderr_text2 = execute_ssh_command(ssh, f"ls -la {remote_path} 2>&1")
+                    file_info = stdout_text2.strip()
+                    
+                    # Check if OpenHAB user can read the file
+                    exit_status, stdout_text3, stderr_text3 = execute_ssh_command(ssh, f"sudo -u openhab test -r {remote_path} && echo 'READABLE' || echo 'NOT_READABLE'")
+                    readable_check = stdout_text3.strip()
+                else:
+                    error = stderr_text
+                    print(f"    ✗ Failed to deploy {local_file}: {error}")
+            
+            # Deploy widget files
+            print("\nDeploying widget files...")
+            for local_file, remote_path in widget_mappings.items():
+                local_path = local_config_path / local_file
+                
+                if not local_path.exists():
+                    print(f"  Warning: {local_file} not found, skipping...")
+                    continue
+                
+                print(f"  Deploying {local_file} -> {remote_path}...")
+                
+                # Copy to temp location in user's home directory
+                temp_path = f"{temp_dir}/{local_file.replace('/', '_')}"
+                try:
+                    scp.put(str(local_path), temp_path)
+                except Exception as e:
+                    print(f"    ✗ SCP failed for {local_file}: {e}")
+                    continue
+                
+                # Copy to final location and set permissions
                 copy_cmd = f"cp {temp_path} {remote_path} && chmod 644 {remote_path} && rm {temp_path}"
                 exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
                 
