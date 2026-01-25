@@ -54,6 +54,10 @@ unsigned long lastTransmission = -TRANSMISSION_INTERVAL;
 unsigned long lastLEDToggle = 0;
 bool ledState = false;
 
+// Sensor initialization status (tracks whether begin() succeeded in setup)
+bool bmeInitialized = false;
+bool as5600Initialized = false;
+
 // Sensor data structure (packed to match Python struct.unpack format)
 // struct size representation: <iIHHi
 struct __attribute__((packed)) SensorData {
@@ -106,9 +110,10 @@ void setup() {
   if (!bme.begin(BME280_ADDRESS)) {
     Serial.println(F("BME280 initialization failed! Check wiring and I2C address."));
     blinkLED(5);  // Medium blink indicates sensor error
-    // Continue anyway - will retry in loop
+    bmeInitialized = false;
   } else {
     Serial.println(F("BME280 initialized successfully"));
+    bmeInitialized = true;
     // Configure BME280 for weather monitoring
     bme.setSampling(Adafruit_BME280::MODE_NORMAL,      // Operating Mode
                     Adafruit_BME280::SAMPLING_X2,      // Temperature oversampling
@@ -126,9 +131,10 @@ void setup() {
   if (!as5600.begin(AS5600_ADDRESS)) {
     Serial.println(F("AS5600 initialization failed! Check wiring."));
     blinkLED(5);  // Medium blink indicates sensor error
-    // Continue anyway - will retry in loop
+    as5600Initialized = false;
   } else {
     Serial.println(F("AS5600 initialized successfully"));
+    as5600Initialized = true;
     // Check if magnet is detected
     if (!as5600.isMagnetDetected()) {
       Serial.println(F("Warning: AS5600 magnet not detected!"));
@@ -168,7 +174,7 @@ SensorData readSensors() {
   SensorData data;
 
   // Read BME280 sensor
-  if (bme.begin(BME280_ADDRESS)) {
+  if (bmeInitialized) {
     data.temperature = (int32_t)round(
       bme.readTemperature() * 100);
 
@@ -189,7 +195,7 @@ SensorData readSensors() {
   }
 
   // Read AS5600 (Wind Direction)
-  if (as5600.begin()) {
+  if (as5600Initialized) {
     // Apply calibration offset to raw angle
     int rawAngle = as5600.getRawAngle();
     int calibratedRaw = (rawAngle + WIND_DIRECTION_OFFSET) % 4096;
@@ -221,23 +227,23 @@ void transmitData(SensorData data) {
   const size_t data_size = sizeof(data);
   bool success = false;
   radio.stopListening();
-  // Serial.print(F("Transmitting | "));
-  // Serial.print(data.temperature);
-  // Serial.print(F(" | "));
-  // Serial.print(data.pressure);
-  // Serial.print(F(" | "));
-  // Serial.print(data.humidity);
-  // Serial.print(F(" | "));
-  // Serial.print(data.windDirection);
-  // Serial.print(F(" | "));
-  // Serial.println(data.windSpeed);
+  Serial.print(F("Transmitting | "));
+  Serial.print(data.temperature);
+  Serial.print(F(" | "));
+  Serial.print(data.pressure);
+  Serial.print(F(" | "));
+  Serial.print(data.humidity);
+  Serial.print(F(" | "));
+  Serial.print(data.windDirection);
+  Serial.print(F(" | "));
+  Serial.println(data.windSpeed);
   // NOTE: Send compact binary struct instead of JSON string to stay under 32-byte NRF24 payload limit
   success = radio.write(&data, data_size);
 
   if (success) {
-    // Serial.print(F("✓ Transmitted "));
-    // Serial.print(data_size);
-    // Serial.println(" bytes successfully");
+    Serial.print(F("✓ Transmitted "));
+    Serial.print(data_size);
+    Serial.println(" bytes successfully");
   } else {
     Serial.println(F("✗ Transmission failed"));
     blinkLED(2);  // Error indicator
