@@ -1,4 +1,7 @@
 # Sudoers configuration for openhab-deploy user
 # Allows the openhab-deploy user to restart openHAB service without password
+# Also allows checking service status (needed for proper restart verification)
 openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart openhab
+openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl is-active openhab
+openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl status openhab
 

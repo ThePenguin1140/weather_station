@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Deploy OpenHAB configuration files to the OpenHAB server via SSH.
 
@@ -14,6 +15,12 @@ import paramiko
 from scp import SCPClient
 import re
 import time
+
+# Fix Windows console encoding for Unicode characters
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 
 def parse_ssh_config(config_path, host='server-deploy'):
@@ -442,7 +449,7 @@ def deploy_files(
                     print(f"  {local_path} -> {remote_path} (FILE NOT FOUND)")
             print("\nWould deploy widget files:")
             widget_mappings = {
-                'widgets/compass_widget.yaml': '/var/lib/openhab/ui/widgets/compass_widget.yaml',
+                'widgets/compass_card.yaml': '/var/lib/openhab/ui/widgets/compass_card.yaml',
             }
             for local_file, remote_path in widget_mappings.items():
                 local_path = local_config_path / local_file
@@ -589,7 +596,7 @@ def deploy_files(
         # Widget files mapping
         # YAML widget definition goes to ui/widgets/
         widget_mappings = {
-            'widgets/compass_widget.yaml': f'{actual_userdata_base}/ui/widgets/compass_widget.yaml',
+            'widgets/compass_card.yaml': f'{actual_userdata_base}/ui/widgets/compass_card.yaml',
         }
         
         # Check OpenHAB service status
@@ -643,8 +650,10 @@ def deploy_files(
                     print(f"    ✗ SCP failed for {local_file}: {e}")
                     continue
                 
-                # Copy to final location and set permissions (group permissions handle ownership)
-                copy_cmd = f"cp {temp_path} {remote_path} && chmod 644 {remote_path} && rm {temp_path}"
+                # Copy to final location and try to set permissions
+                # chmod may fail for files owned by openhab (e.g., in jsondb), but that's OK
+                # since those files are already group-writable
+                copy_cmd = f"cp {temp_path} {remote_path} && (chmod 644 {remote_path} 2>/dev/null || true) && rm {temp_path}"
                 exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
                 
                 if exit_status == 0:
@@ -681,8 +690,10 @@ def deploy_files(
                     print(f"    ✗ SCP failed for {local_file}: {e}")
                     continue
                 
-                # Copy to final location and set permissions
-                copy_cmd = f"cp {temp_path} {remote_path} && chmod 644 {remote_path} && rm {temp_path}"
+                # Copy to final location and try to set permissions
+                # chmod may fail for files owned by openhab, but that's OK
+                # since those files are already group-writable
+                copy_cmd = f"cp {temp_path} {remote_path} && (chmod 644 {remote_path} 2>/dev/null || true) && rm {temp_path}"
                 exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
                 
                 if exit_status == 0:
@@ -706,16 +717,73 @@ def deploy_files(
         if deploy_openhab_config and restart_service and deployed_count > 0:
             print("\nRestarting OpenHAB service...")
             
+            # Check if OpenHAB is currently starting up (to avoid rapid restarts)
+            exit_status, stdout_text, stderr_text = execute_ssh_command(
+                ssh, "systemctl is-active openhab 2>&1 || echo 'inactive'"
+            )
+            current_status = stdout_text.strip()
+            
+            if current_status == 'activating':
+                print("  ⚠ OpenHAB is currently starting up. Waiting for it to finish...")
+                # Wait up to 60 seconds for OpenHAB to finish starting
+                for i in range(12):
+                    time.sleep(5)
+                    exit_status, stdout_text2, stderr_text2 = execute_ssh_command(
+                        ssh, "systemctl is-active openhab 2>&1 || echo 'inactive'"
+                    )
+                    status = stdout_text2.strip()
+                    if status == 'active':
+                        print(f"  ✓ OpenHAB finished starting (waited {(i+1)*5}s)")
+                        break
+                    elif status != 'activating':
+                        print(f"  ⚠ OpenHAB status changed to: {status}")
+                        break
+                else:
+                    print("  ⚠ Warning: OpenHAB took longer than expected to start")
+            
+            # Perform the restart
             exit_status, stdout_text, stderr_text = execute_ssh_command(
                 ssh, "sudo systemctl restart openhab"
             )
             
             if exit_status == 0:
-                print("  ✓ OpenHAB service restarted successfully")
-                # Wait a moment and verify service is running
-                time.sleep(2)
-                exit_status, stdout_text2, stderr_text2 = execute_ssh_command(ssh, "sudo systemctl is-active openhab 2>&1")
-                final_status = stdout_text2.strip()
+                print("  ✓ systemctl restart command succeeded")
+                print("  Waiting for OpenHAB to fully initialize (this may take 30-60 seconds)...")
+                
+                # Wait for systemd to report service as active
+                max_wait = 30  # Wait up to 30 seconds for systemd status
+                for i in range(max_wait):
+                    time.sleep(1)
+                    exit_status, stdout_text2, stderr_text2 = execute_ssh_command(
+                        ssh, "systemctl is-active openhab 2>&1 || echo 'inactive'"
+                    )
+                    status = stdout_text2.strip()
+                    if status == 'active':
+                        print(f"  ✓ OpenHAB service is active (waited {i+1}s)")
+                        break
+                    elif status == 'failed':
+                        print(f"  ✗ OpenHAB service failed to start")
+                        break
+                else:
+                    print(f"  ⚠ Warning: OpenHAB service did not become active within {max_wait} seconds")
+                
+                # Wait additional time for OpenHAB to fully initialize bundles
+                print("  Waiting for OpenHAB bundles to load (this may take 30-60 seconds)...")
+                max_bundle_wait = 60  # Wait up to 60 seconds for bundles
+                for i in range(max_bundle_wait):
+                    time.sleep(1)
+                    # Check if OpenHAB REST API is responding (indicates bundles are loaded)
+                    exit_status, stdout_text3, stderr_text3 = execute_ssh_command(
+                        ssh, "curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://localhost:8080/rest/ 2>/dev/null || echo '000'"
+                    )
+                    http_code = stdout_text3.strip()
+                    if http_code == '200' or http_code == '401':  # 401 is OK (auth required), 200 is OK
+                        print(f"  ✓ OpenHAB REST API is responding (waited {i+1}s)")
+                        print("  ✓ OpenHAB service restarted and fully initialized")
+                        break
+                else:
+                    print(f"  ⚠ Warning: OpenHAB REST API did not respond within {max_bundle_wait} seconds")
+                    print("  ⚠ OpenHAB may still be initializing. Check logs if issues persist.")
             else:
                 error = stderr_text
                 print(f"  ✗ Failed to restart OpenHAB service: {error}")

@@ -69,63 +69,36 @@
                   "slots": {
                     "default": [
                       {
-                        "component": "oh-label-card",
+                        "component": "widget:compass_card",
                         "config": {
-                          "action": "analyzer",
-                          "actionAnalyzerChartType": "dynamic",
-                          "actionAnalyzerCoordSystem": "time",
-                          "actionAnalyzerPeriod": "12h",
-                          "actionAnalyzerItems": [
-                            "WeatherStation_WindSpeed"
-                          ],
-                          "item": "WeatherStation_WindSpeed"
+                            "action": "navigate",
+                            "actionPage": "page:page_windspeed_chart",
+                            "direction": "WeatherStation_WindDirection",
+                            "value": "WeatherStation_WindSpeed"
                         }
                       },
                       {
                         "component": "oh-label-card",
                         "config": {
-                          "action": "analyzer",
-                          "actionAnalyzerChartType": "dynamic",
-                          "actionAnalyzerCoordSystem": "time",
-                          "actionAnalyzerPeriod": "12h",
-                          "actionAnalyzerItems": [
-                            "WeatherStation_Pressure"
-                          ],
+                          "action": "navigate",
+                          "actionPage": "page:page_pressure_chart",
                           "item": "WeatherStation_Pressure"
                         }
                       },
                       {
                         "component": "oh-label-card",
                         "config": {
-                          "action": "analyzer",
-                          "actionAnalyzerChartType": "dynamic",
-                          "actionAnalyzerCoordSystem": "time",
-                          "actionAnalyzerPeriod": "12h",
-                          "actionAnalyzerItems": [
-                            "WeatherStation_Humidity"
-                          ],
+                          "action": "navigate",
+                          "actionPage": "page:page_humidity_chart",
                           "item": "WeatherStation_Humidity"
                         }
                       },
                       {
                         "component": "oh-label-card",
                         "config": {
-                          "action": "analyzer",
-                          "actionAnalyzerChartType": "dynamic",
-                          "actionAnalyzerCoordSystem": "time",
-                          "actionAnalyzerPeriod": "12h",
-                          "actionAnalyzerItems": [
-                            "WeatherStation_Temperature"
-                          ],
+                          "action": "navigate",
+                          "actionPage": "page:page_temperature_chart",
                           "item": "WeatherStation_Temperature"
-                        }
-                      },
-                      {
-                        "component": "widget:compass_widget",
-                        "config": {
-                          "props": {
-                            "item": "WeatherStation_WindDirection"
-                          }
                         }
                       }
                     ]
@@ -153,7 +126,7 @@
       "component": "oh-chart-page",
       "config": {
         "label": "Temperature \u0026 Pressure ",
-        "period": "12h",
+        "period": "D",
         "sidebar": true
       },
       "slots": {
@@ -177,23 +150,29 @@
           {
             "component": "oh-time-series",
             "config": {
-              "gridIndex": 0.0,
+              "gridIndex": 0,
               "item": "WeatherStation_Temperature",
               "name": "Temperature",
               "type": "line",
-              "xAxisIndex": 0.0,
-              "yAxisIndex": 0.0
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "rrd4j"
             }
           },
           {
             "component": "oh-time-series",
             "config": {
-              "gridIndex": 0.0,
+              "gridIndex": 0,
               "item": "WeatherStation_Pressure",
               "name": "Pressure",
               "type": "line",
-              "xAxisIndex": 0.0,
-              "yAxisIndex": 1.0
+              "xAxisIndex": 0,
+              "yAxisIndex": 1,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "rrd4j"
             }
           }
         ],
@@ -201,7 +180,7 @@
           {
             "component": "oh-time-axis",
             "config": {
-              "gridIndex": 0.0
+              "gridIndex": 0
             }
           }
         ],
@@ -209,7 +188,7 @@
           {
             "component": "oh-value-axis",
             "config": {
-              "gridIndex": 0.0,
+              "gridIndex": 0,
               "max": "40",
               "min": "0"
             }
@@ -217,7 +196,279 @@
           {
             "component": "oh-value-axis",
             "config": {
-              "gridIndex": 0.0
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_windspeed_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_windspeed_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Jan 24, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Wind Speed",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_WindSpeed",
+              "name": "Wind Speed",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "rrd4j"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_pressure_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_pressure_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Jan 24, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Pressure",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_Pressure",
+              "name": "Pressure",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "rrd4j"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_humidity_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_humidity_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Jan 24, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Humidity",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_Humidity",
+              "name": "Humidity",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "rrd4j"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_temperature_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_temperature_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Jan 24, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Temperature",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_Temperature",
+              "name": "Temperature",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "rrd4j"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
             }
           }
         ]

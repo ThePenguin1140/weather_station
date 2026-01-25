@@ -153,17 +153,28 @@ sudo rm /tmp/openhab_key.pub
 
 ## Step 6: Configure Sudoers
 
-Configure sudo to allow the deployment user to restart services without a password. Create a dedicated sudoers drop-in file:
+Configure sudo to allow the deployment user to restart services and check their status without a password. Create a dedicated sudoers drop-in file:
 
 ```bash
 sudo tee /etc/sudoers.d/openhab-deploy >/dev/null << 'EOF'
-openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart openhab, /bin/systemctl restart weather-station
+# Sudoers configuration for openhab-deploy user
+# Allows the openhab-deploy user to restart openHAB service without password
+# Also allows checking service status (needed for proper restart verification)
+openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart openhab
+openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl is-active openhab
+openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl status openhab
+openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart weather-station
 EOF
 sudo chmod 440 /etc/sudoers.d/openhab-deploy
 ```
 
+**Required permissions:**
 - **`restart openhab`**: Needed so the deployment script can restart OpenHAB after pushing new configuration files.
+- **`is-active openhab`**: Allows the deployment script to verify OpenHAB service status during restart verification.
+- **`status openhab`**: Allows checking detailed service status for troubleshooting.
 - **`restart weather-station`**: Allows the deployment user to restart the weather station receiver service (see the next step).
+
+**Important**: The `is-active` and `status` permissions are critical for proper restart verification. Without these, the deployment script cannot properly verify that OpenHAB has fully initialized after a restart, which can lead to rapid successive restarts and bundle lock timeouts.
 
 You can verify the syntax is correct with:
 
@@ -303,6 +314,31 @@ Then run an actual deployment:
 python deploy_openhab.py
 ```
 
+**Important Deployment Notes:**
+
+1. **OpenHAB Initialization Time**: OpenHAB takes 30-60 seconds to fully initialize after a restart. The deployment script now properly waits for:
+   - Systemd to report the service as "active" (up to 30 seconds)
+   - OpenHAB REST API to respond (up to 60 seconds)
+   
+   This ensures OpenHAB is fully ready before considering the deployment successful.
+
+2. **Avoid Rapid Successive Deployments**: 
+   - Do not deploy multiple times in quick succession (within 5-10 minutes)
+   - Wait for the previous deployment to complete fully before starting another
+   - Rapid restarts can cause bundle lock contention and `BundleException` timeouts
+   - If you need to deploy multiple changes, batch them into a single deployment
+
+3. **Monitor Deployment Output**: 
+   - Watch for "OpenHAB service restarted and fully initialized" message
+   - If you see warnings about initialization taking longer than expected, wait before deploying again
+   - Check OpenHAB logs if deployments fail: `sudo journalctl -u openhab -f`
+
+4. **Deployment Best Practices**:
+   - Use `--dry-run` first to preview changes
+   - Deploy during low-traffic periods when possible
+   - Test configuration changes in a staging environment first
+   - Keep deployments focused - avoid deploying everything at once if possible
+
 ## Troubleshooting
 
 ### Permission Denied Errors
@@ -374,11 +410,45 @@ If service restart fails:
 2. Test sudo access:
    ```bash
    ssh -F .ssh/config openhab "sudo -n systemctl restart openhab"
+   ssh -F .ssh/config openhab "sudo -n systemctl is-active openhab"
+   ssh -F .ssh/config openhab "sudo -n systemctl status openhab"
 
    # If you created the weather-station service in Step 7:
    ssh -F .ssh/config openhab "sudo -n systemctl restart weather-station"
    ```
    The `-n` flag tests passwordless sudo.
+
+3. **Important**: If you see "command not allowed" errors for `is-active` or `status`, the sudoers file needs to be updated with the additional permissions shown in Step 6. This is critical for proper restart verification.
+
+### OpenHAB Restart Issues
+
+If OpenHAB fails to restart or experiences `BundleException` timeouts:
+
+1. **Check if OpenHAB is still initializing**:
+   ```bash
+   sudo systemctl status openhab
+   ```
+   If status shows "activating", wait for it to complete before attempting another restart.
+
+2. **Check for rapid successive restarts**:
+   ```bash
+   sudo journalctl -u openhab --since "1 hour ago" | grep -E "(Started|Stopped)"
+   ```
+   If you see multiple restarts within a short time period, wait at least 5-10 minutes between deployments.
+
+3. **Verify OpenHAB is fully ready**:
+   ```bash
+   curl -s http://localhost:8080/rest/ | head -5
+   ```
+   If this doesn't return a response, OpenHAB is still initializing.
+
+4. **Check for bundle lock errors**:
+   ```bash
+   sudo journalctl -u openhab --since "1 hour ago" | grep -i "bundleexception\|timeout\|lock"
+   ```
+   If you see these errors, OpenHAB was restarted too quickly. Wait longer between deployments.
+
+5. **See `server/DEPLOYMENT_RESTART_FIX.md`** for detailed information about restart issues and solutions.
 
 ### Weather Station Service Not Found
 
@@ -406,7 +476,10 @@ If the deployment script fails with an error like "Unit weather-station.service 
 - The private SSH key (`.ssh/openhab_key`) should never be committed to version control
 - Consider using a passphrase-protected SSH key for additional security
 - Regularly rotate SSH keys as part of your security practices
-- The sudoers rule is limited to only restarting the OpenHAB and weather-station services, not other system commands
+- The sudoers rules are limited to:
+  - Restarting the OpenHAB and weather-station services
+  - Checking service status (is-active, status)
+  - These commands do not allow arbitrary system commands or file access
 
 ## Cleanup (If Needed)
 

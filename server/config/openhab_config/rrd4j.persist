@@ -43,6 +43,6 @@ Items {
     WeatherStation_WindSpeed : strategy = everyChange, everyMinute, everyHour, everyDay
     
     // Persist the entire group (alternative approach)
-    // WeatherStation* : strategy = everyChange, everyMinute, everyHour, everyDay
+    WeatherStation* : strategy = everyChange, everyMinute, everyHour, everyDay
 }
 
