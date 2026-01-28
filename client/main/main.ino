@@ -28,7 +28,7 @@
 #define AS5600_ADDRESS 0x36
 
 // Transmission Configuration
-#define TRANSMISSION_INTERVAL 5000  // Transmit every 5 seconds
+#define TRANSMISSION_INTERVAL 5 * 60 * 1000  // Transmit every 5 minutes
 #define MAX_RETRIES 3
 
 // Hardware Calibration Constants
@@ -50,7 +50,7 @@ Adafruit_BME280 bme;
 Adafruit_AS5600 as5600;
 
 // Timing variables
-unsigned long lastTransmission = -TRANSMISSION_INTERVAL;
+unsigned long lastTransmission = 0;
 unsigned long lastLEDToggle = 0;
 bool ledState = false;
 
@@ -148,13 +148,18 @@ void setup() {
 
   Serial.println(F("Setup complete. Starting transmission loop..."));
   blinkLED(3);  // Success indicator
+  
+  // Note: First transmission will occur immediately in loop() when lastTransmission == 0
+  // Subsequent transmissions will occur every TRANSMISSION_INTERVAL (5 minutes)
 }
 
 void loop() {
   unsigned long currentTime = millis();
 
   // Read sensors and transmit at configured interval
-  if (currentTime - lastTransmission >= TRANSMISSION_INTERVAL) {
+  // Handle first transmission (lastTransmission == 0) and periodic transmissions
+  // Also handle millis() overflow case
+  if (lastTransmission == 0 || currentTime - lastTransmission >= TRANSMISSION_INTERVAL) {
     SensorData data = readSensors();
     transmitData(data);
     lastTransmission = currentTime;
@@ -181,7 +186,7 @@ SensorData readSensors() {
     data.pressure = (uint32_t)constrain(
       bme.readPressure(),
       0,
-      100000);
+      200000);
     data.humidity = (uint16_t)constrain(
       bme.readHumidity(),
       0,
