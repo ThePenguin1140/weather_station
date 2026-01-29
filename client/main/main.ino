@@ -27,8 +27,31 @@
 
 #define AS5600_ADDRESS 0x36
 
+// Debug flag: Set to false to disable clock prescaler for serial debugging
+// When ENABLE_POWER_SAVING is false, serial communication will work at 9600 baud
+// When true, clock is reduced to 2MHz (power savings) and serial is completely disabled
+#define ENABLE_POWER_SAVING true
+
+// Serial debugging macros - conditionally compile Serial operations
+// When ENABLE_POWER_SAVING is true, these macros expand to nothing (zero overhead)
+// When false, they expand to Serial.print/println/begin calls
+#if ENABLE_POWER_SAVING
+  #define DEBUG_SERIAL_BEGIN(baud) ((void)0)
+  #define DEBUG_PRINT(...) ((void)0)
+  #define DEBUG_PRINTLN(...) ((void)0)
+#else
+  #define DEBUG_SERIAL_BEGIN(baud) Serial.begin(baud)
+  #define DEBUG_PRINT(...) Serial.print(__VA_ARGS__)
+  #define DEBUG_PRINTLN(...) Serial.println(__VA_ARGS__)
+#endif
+
 // Transmission Configuration
-#define TRANSMISSION_INTERVAL 5 * 60 * 1000  // Transmit every 5 minutes
+// Base interval in milliseconds (at 16MHz clock)
+// When clock is divided by 8 (2MHz), millis() runs 8x slower, so we need 8x the count
+// to achieve the same real-world time interval
+const unsigned long TRANSMISSION_INTERVAL_BASE = 5UL * 60UL * 1000UL;  
+const unsigned long TIMING_SCALER = 8UL;
+const unsigned long ONE_SECOND = 1000 / TIMING_SCALER;
 #define MAX_RETRIES 3
 
 // Hardware Calibration Constants
@@ -53,6 +76,15 @@ Adafruit_AS5600 as5600;
 bool bmeInitialized = false;
 bool as5600Initialized = false;
 
+// Transmission timing (non-blocking)
+unsigned long lastTransmissionTime = 0;
+unsigned long lastStatusLogTime = 0;
+unsigned long transmissionInterval = 0;  // Will be initialized in setup() based on ENABLE_POWER_SAVING
+// Base interval in milliseconds (at 16MHz clock)
+// When clock is divided by 8 (2MHz), millis() runs 8x slower, so we need 8x the count
+const unsigned long STATUS_LOG_INTERVAL_BASE = 30000UL;  // Log status every 30 seconds (at 16MHz)
+unsigned long statusLogInterval = 0;  // Will be initialized in setup() based on ENABLE_POWER_SAVING
+
 // Sensor data structure (packed to match Python struct.unpack format)
 // struct size representation: <iIHHi
 struct __attribute__((packed)) SensorData {
@@ -65,16 +97,74 @@ struct __attribute__((packed)) SensorData {
 
 void setup() {
   // Initialize Serial for debugging
-  Serial.begin(9600);
+  DEBUG_SERIAL_BEGIN(9600);
+
+  DEBUG_PRINTLN(F("Weather Station Transmitter Starting..."));
+
+  // Initialize transmission and status log intervals based on power saving mode
+  // When clock is divided by 8 (2MHz), millis() runs 8x slower, so we need 8x the count
+  // to achieve the same real-world time interval
+  #if ENABLE_POWER_SAVING
+    transmissionInterval = TRANSMISSION_INTERVAL_BASE / TIMING_SCALER;
+    statusLogInterval = STATUS_LOG_INTERVAL_BASE / TIMING_SCALER;
+  #else
+    transmissionInterval = TRANSMISSION_INTERVAL_BASE;
+    statusLogInterval = STATUS_LOG_INTERVAL_BASE;
+  #endif
 
   // Lower clock frequency for power savings (divide by 8 = 2MHz from 16MHz)
   // This reduces power consumption significantly while maintaining I2C/SPI functionality
-  noInterrupts();
-  CLKPR = (1 << CLKPCE);  // Enable clock prescaler change
-  CLKPR = (1 << CLKPS1) | (1 << CLKPS0);  // Divide by 8 (2MHz)
-  interrupts();
+  // NOTE: Clock prescaler change breaks serial communication timing
+  // Set ENABLE_POWER_SAVING to false above to disable this for debugging
+  #if ENABLE_POWER_SAVING
+    noInterrupts();
+    CLKPR = _BV(CLKPCE); // 0x80
+    CLKPR = _BV(CLKPS1 | CLKPS0); // 0x03
+    interrupts();
+    DEBUG_PRINTLN(F("Power saving mode enabled"));
+  #else
+    DEBUG_PRINTLN(F("Debug mode: Full speed"));
+  #endif
 
-  Serial.println(F("Weather Station Transmitter Starting..."));
+  // Print actual clock frequency
+  // F_CPU is defined at compile-time by Arduino build system based on board selection
+  // It represents the base CPU frequency before any prescaler changes
+  noInterrupts();
+  uint8_t clkpr = CLKPR & 0x0F;  // Read prescaler bits (CLKPS3:0)
+  interrupts();
+  
+  // Calculate frequency based on prescaler
+  // Prescaler divides by 2^(CLKPS value)
+  unsigned long baseFreq = F_CPU;  // Use compile-time F_CPU constant
+  unsigned long divider = 1UL << clkpr;  // 2^clkpr
+  unsigned long actualFreq = baseFreq / divider;
+  
+  DEBUG_PRINT(F("Base CPU frequency (F_CPU): "));
+  DEBUG_PRINT(baseFreq);
+  DEBUG_PRINT(F(" Hz ("));
+  if (baseFreq >= 1000000) {
+    DEBUG_PRINT(baseFreq / 1000000.0, 1);
+    DEBUG_PRINT(F(" MHz)"));
+  } else if (baseFreq >= 1000) {
+    DEBUG_PRINT(baseFreq / 1000.0, 1);
+    DEBUG_PRINT(F(" kHz)"));
+  } else {
+    DEBUG_PRINT(F(" Hz)"));
+  }
+  DEBUG_PRINT(F(" | Prescaler: 1/"));
+  DEBUG_PRINT(divider);
+  DEBUG_PRINT(F(" | Actual frequency: "));
+  DEBUG_PRINT(actualFreq);
+  DEBUG_PRINT(F(" Hz ("));
+  if (actualFreq >= 1000000) {
+    DEBUG_PRINT(actualFreq / 1000000.0, 1);
+    DEBUG_PRINTLN(F(" MHz)"));
+  } else if (actualFreq >= 1000) {
+    DEBUG_PRINT(actualFreq / 1000.0, 1);
+    DEBUG_PRINTLN(F(" kHz)"));
+  } else {
+    DEBUG_PRINTLN(F(" Hz)"));
+  }
 
   // Initialize Status LED
   pinMode(LED_PIN, OUTPUT);
@@ -82,10 +172,10 @@ void setup() {
 
   // Initialize NRF24L01
   if (!radio.begin()) {
-    Serial.println(F("NRF24L01 initialization failed!"));
+    DEBUG_PRINTLN(F("NRF24L01 initialization failed!"));
     blinkLED(10);  // Fast blink indicates error
     while (1) {
-      delay(1000);
+      delay(ONE_SECOND);
     }
   }
 
@@ -96,25 +186,25 @@ void setup() {
   radio.setRetries(30, 5);          // Disable auto-retry and ACK (fire and forget)
   radio.stopListening();            // Set as transmitter
 
-  Serial.println(F("NRF24L01 initialized successfully"));
-  Serial.print(F("Data Rate: "));
-  Serial.println(radio.getDataRate());
-  Serial.print(F("PA Level: "));
-  Serial.println(radio.getPALevel());
-  Serial.print(F("Channel: "));
-  Serial.println(radio.getChannel());
+  DEBUG_PRINTLN(F("NRF24L01 initialized successfully"));
+  DEBUG_PRINT(F("Data Rate: "));
+  DEBUG_PRINTLN(radio.getDataRate());
+  DEBUG_PRINT(F("PA Level: "));
+  DEBUG_PRINTLN(radio.getPALevel());
+  DEBUG_PRINT(F("Channel: "));
+  DEBUG_PRINTLN(radio.getChannel());
 
-  delay(1000);
+  delay(ONE_SECOND);
 
-  Serial.println(F("Starting BME280 initialization..."));
+  DEBUG_PRINTLN(F("Starting BME280 initialization..."));
 
   // Initialize BME280
   if (!bme.begin(BME280_ADDRESS)) {
-    Serial.println(F("BME280 initialization failed! Check wiring and I2C address."));
+    DEBUG_PRINTLN(F("BME280 initialization failed! Check wiring and I2C address."));
     blinkLED(5);  // Medium blink indicates sensor error
     bmeInitialized = false;
   } else {
-    Serial.println(F("BME280 initialized successfully"));
+    DEBUG_PRINTLN(F("BME280 initialized successfully"));
     bmeInitialized = true;
     // Configure BME280 for weather monitoring
     bme.setSampling(Adafruit_BME280::MODE_NORMAL,      // Operating Mode
@@ -125,37 +215,123 @@ void setup() {
                     Adafruit_BME280::STANDBY_MS_500);  // Standby time
   }
 
-  delay(1000);
+  delay(ONE_SECOND);
 
-  Serial.println(F("Starting AS5600 initialization..."));
+  DEBUG_PRINTLN(F("Starting AS5600 initialization..."));
 
   // Initialize AS5600 (Wind Direction)
   if (!as5600.begin(AS5600_ADDRESS)) {
-    Serial.println(F("AS5600 initialization failed! Check wiring."));
+    DEBUG_PRINTLN(F("AS5600 initialization failed! Check wiring."));
     blinkLED(5);  // Medium blink indicates sensor error
     as5600Initialized = false;
   } else {
-    Serial.println(F("AS5600 initialized successfully"));
+    DEBUG_PRINTLN(F("AS5600 initialized successfully"));
     as5600Initialized = true;
     // Check if magnet is detected
     if (!as5600.isMagnetDetected()) {
-      Serial.println(F("Warning: AS5600 magnet not detected!"));
+      DEBUG_PRINTLN(F("Warning: AS5600 magnet not detected!"));
     }
   }
 
-  delay(1000);
+  delay(ONE_SECOND);
 
   // Initialize Wind Speed analog pin
   pinMode(WIND_SPEED_PIN, INPUT);
 
-  Serial.println(F("Setup complete. Starting transmission loop..."));
+  DEBUG_PRINTLN(F("Setup complete. Starting transmission loop..."));
   blinkLED(3);  // Success indicator
 }
 
 void loop() {
-  SensorData data = readSensors();
-  transmitData(data);
-  delay(TRANSMISSION_INTERVAL);  // Block for 5 minutes
+  // Non-blocking transmission interval using millis()
+  unsigned long currentTime = millis();
+  
+  // Check if enough time has passed since last transmission
+  // Handle millis() overflow properly
+  bool shouldTransmit = false;
+  unsigned long elapsedForTransmit = 0;
+  
+  if (lastTransmissionTime == 0) {
+    // First transmission - always transmit
+    shouldTransmit = true;
+    elapsedForTransmit = 0;
+  } else if (currentTime >= lastTransmissionTime) {
+    // Normal case: no overflow
+    elapsedForTransmit = currentTime - lastTransmissionTime;
+    shouldTransmit = (elapsedForTransmit >= transmissionInterval);
+  } else {
+    // Overflow occurred - enough time has definitely passed
+    shouldTransmit = true;
+    elapsedForTransmit = ((unsigned long)-1 - lastTransmissionTime) + currentTime + 1;
+  }
+  
+  if (shouldTransmit) {
+    DEBUG_PRINT(F("Transmission triggered (elapsed: "));
+    DEBUG_PRINT(elapsedForTransmit);
+    DEBUG_PRINT(F("ms >= interval: "));
+    DEBUG_PRINT(transmissionInterval);
+    DEBUG_PRINTLN(F("ms)"));
+    SensorData data = readSensors();
+    transmitData(data);
+    lastTransmissionTime = currentTime;  // Update last transmission time
+    lastStatusLogTime = currentTime;     // Reset status log timer after transmission
+  }
+  
+  // Log time remaining until next transmission (every statusLogInterval)
+  // Handle overflow in status log interval check
+  bool shouldLogStatus = false;
+  if (lastStatusLogTime == 0) {
+    shouldLogStatus = true;
+  } else if (currentTime >= lastStatusLogTime) {
+    shouldLogStatus = (currentTime - lastStatusLogTime >= statusLogInterval);
+  } else {
+    // Overflow occurred - log status
+    shouldLogStatus = true;
+  }
+  
+  if (shouldLogStatus) {
+    // Handle millis() overflow and initial state
+    unsigned long elapsed;
+    if (lastTransmissionTime == 0) {
+      // First transmission hasn't happened yet
+      elapsed = 0;
+    } else if (currentTime >= lastTransmissionTime) {
+      // Normal case: no overflow
+      elapsed = currentTime - lastTransmissionTime;
+    } else {
+      // Overflow occurred - elapsed wraps around
+      // This means we're very close to next transmission (or past it)
+      elapsed = ((unsigned long)-1 - lastTransmissionTime) + currentTime + 1;
+    }
+    
+    // Calculate remaining time, handling overflow/underflow
+    unsigned long remaining;
+    if (elapsed >= transmissionInterval) {
+      // Time has passed - should transmit
+      remaining = 0;
+    } else {
+      remaining = transmissionInterval - elapsed;
+    }
+    
+    // Calculate minutes and seconds remaining
+    unsigned long minutesRemaining = remaining / 60000;
+    unsigned long secondsRemaining = (remaining % 60000) / 1000;
+    
+    DEBUG_PRINT(F("Next transmission in: "));
+    DEBUG_PRINT(minutesRemaining);
+    DEBUG_PRINT(F("m "));
+    DEBUG_PRINT(secondsRemaining);
+    DEBUG_PRINT(F("s (elapsed: "));
+    DEBUG_PRINT(elapsed);
+    DEBUG_PRINT(F("ms, interval: "));
+    DEBUG_PRINT(transmissionInterval);
+    DEBUG_PRINTLN(F("ms)"));
+  
+    lastStatusLogTime = currentTime;
+  }
+  
+  // Small delay to prevent tight loop (optional, but good practice)
+  delay(1000);
 }
 
 SensorData readSensors() {
@@ -179,7 +355,7 @@ SensorData readSensors() {
     data.temperature = -999;
     data.pressure = 0;
     data.humidity = 0;
-    Serial.println(F("Warning: BME280 read failed"));
+    DEBUG_PRINTLN(F("Warning: BME280 read failed"));
   }
 
   // Read AS5600 (Wind Direction)
@@ -193,7 +369,7 @@ SensorData readSensors() {
   } else {
     // Set error value if sensor not available
     data.windDirection = 0;
-    Serial.println(F("Warning: AS5600 read failed"));
+    DEBUG_PRINTLN(F("Warning: AS5600 read failed"));
   }
 
   // Read Wind Speed (analog sensor)
@@ -215,26 +391,26 @@ void transmitData(SensorData data) {
   const size_t data_size = sizeof(data);
   bool success = false;
   radio.stopListening();
-  Serial.print(F("Transmitting | "));
-  Serial.print(data.temperature);
-  Serial.print(F(" | "));
-  Serial.print(data.pressure);
-  Serial.print(F(" | "));
-  Serial.print(data.humidity);
-  Serial.print(F(" | "));
-  Serial.print(data.windDirection);
-  Serial.print(F(" | "));
-  Serial.println(data.windSpeed);
+  DEBUG_PRINT(F("Transmitting | "));
+  DEBUG_PRINT(data.temperature);
+  DEBUG_PRINT(F(" | "));
+  DEBUG_PRINT(data.pressure);
+  DEBUG_PRINT(F(" | "));
+  DEBUG_PRINT(data.humidity);
+  DEBUG_PRINT(F(" | "));
+  DEBUG_PRINT(data.windDirection);
+  DEBUG_PRINT(F(" | "));
+  DEBUG_PRINTLN(data.windSpeed);
   // NOTE: Send compact binary struct instead of JSON string to stay under 32-byte NRF24 payload limit
   success = radio.write(&data, data_size);
 
   if (success) {
-    Serial.print(F("✓ Transmitted "));
-    Serial.print(data_size);
-    Serial.println(" bytes successfully");
+    DEBUG_PRINT(F("✓ Transmitted "));
+    DEBUG_PRINT(data_size);
+    DEBUG_PRINTLN(" bytes successfully");
     blinkLED(1);
   } else {
-    Serial.println(F("✗ Transmission failed"));
+    DEBUG_PRINTLN(F("✗ Transmission failed"));
     blinkLED(2);  // Error indicator
   }
 }
