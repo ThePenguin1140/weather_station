@@ -49,11 +49,6 @@ RF24 radio(CE_PIN, CSN_PIN);
 Adafruit_BME280 bme;
 Adafruit_AS5600 as5600;
 
-// Timing variables
-unsigned long lastTransmission = 0;
-unsigned long lastLEDToggle = 0;
-bool ledState = false;
-
 // Sensor initialization status (tracks whether begin() succeeded in setup)
 bool bmeInitialized = false;
 bool as5600Initialized = false;
@@ -71,6 +66,13 @@ struct __attribute__((packed)) SensorData {
 void setup() {
   // Initialize Serial for debugging
   Serial.begin(9600);
+
+  // Lower clock frequency for power savings (divide by 8 = 2MHz from 16MHz)
+  // This reduces power consumption significantly while maintaining I2C/SPI functionality
+  noInterrupts();
+  CLKPR = (1 << CLKPCE);  // Enable clock prescaler change
+  CLKPR = (1 << CLKPS1) | (1 << CLKPS0);  // Divide by 8 (2MHz)
+  interrupts();
 
   Serial.println(F("Weather Station Transmitter Starting..."));
 
@@ -148,31 +150,12 @@ void setup() {
 
   Serial.println(F("Setup complete. Starting transmission loop..."));
   blinkLED(3);  // Success indicator
-  
-  // Note: First transmission will occur immediately in loop() when lastTransmission == 0
-  // Subsequent transmissions will occur every TRANSMISSION_INTERVAL (5 minutes)
 }
 
 void loop() {
-  unsigned long currentTime = millis();
-
-  // Read sensors and transmit at configured interval
-  // Handle first transmission (lastTransmission == 0) and periodic transmissions
-  // Also handle millis() overflow case
-  if (lastTransmission == 0 || currentTime - lastTransmission >= TRANSMISSION_INTERVAL) {
-    SensorData data = readSensors();
-    transmitData(data);
-    lastTransmission = currentTime;
-  }
-
-  // Toggle LED to indicate activity
-  if (currentTime - lastLEDToggle >= 500) {
-    ledState = !ledState;
-    digitalWrite(LED_PIN, ledState);
-    lastLEDToggle = currentTime;
-  }
-
-  delay(10);  // Small delay to prevent watchdog issues
+  SensorData data = readSensors();
+  transmitData(data);
+  delay(TRANSMISSION_INTERVAL);  // Block for 5 minutes
 }
 
 SensorData readSensors() {
@@ -249,6 +232,7 @@ void transmitData(SensorData data) {
     Serial.print(F("✓ Transmitted "));
     Serial.print(data_size);
     Serial.println(" bytes successfully");
+    blinkLED(1);
   } else {
     Serial.println(F("✗ Transmission failed"));
     blinkLED(2);  // Error indicator
