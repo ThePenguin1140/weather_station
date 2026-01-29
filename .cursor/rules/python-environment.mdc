@@ -1,0 +1,52 @@
+---
+description: Windows 11 PowerShell environment with Python venv requirements
+globs: **/*.py
+alwaysApply: false
+---
+
+# Python Environment Rules
+
+## System Environment
+
+- **OS**: Windows 11
+- **Default Terminal**: PowerShell
+- **Python Virtual Environment**: Must be used for all Python-related activities
+
+## Virtual Environment Usage
+
+**ALWAYS** activate the virtual environment before running Python commands, scripts, or installing packages.
+
+### Activation
+
+```powershell
+# Activate the venv
+.\venv\Scripts\Activate.ps1
+```
+
+### Before Python Operations
+
+Before executing any Python-related commands:
+1. Check if venv is activated (look for `(venv)` in the prompt)
+2. If not activated, activate it: `.\venv\Scripts\Activate.ps1`
+3. Then proceed with Python commands
+
+### Examples
+
+```powershell
+# ✅ CORRECT - Activate venv first
+.\venv\Scripts\Activate.ps1
+python server/deploy_openhab.py
+
+# ✅ CORRECT - Install packages in venv
+.\venv\Scripts\Activate.ps1
+pip install -r server/requirements.txt
+
+# ❌ INCORRECT - Running Python without venv
+python server/deploy_openhab.py  # Missing venv activation
+```
+
+### Terminal Commands
+
+- Use PowerShell syntax for all terminal commands
+- Use `.\` prefix for relative paths in PowerShell
+- Use `python` (not `python3`) when venv is activated
