@@ -1,6 +1,9 @@
 // RRD4J Persistence Configuration for Weather Station
 // Place this file in your OpenHAB persistence/ directory (e.g., /etc/openhab/persistence/)
 //
+// Tuned for data every 4-30 minutes (lower-power transmission). A custom RRD4J
+// datasource in services/rrd4j.cfg uses a 60 min heartbeat for these items.
+//
 // This configuration enables time series data storage for weather station sensors.
 // RRD4J stores data in Round Robin Database format, optimized for time series data.
 //
