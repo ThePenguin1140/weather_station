@@ -1,6 +1,7 @@
 # Setting Up the OpenHAB Deployment User
 
 This guide explains how to set up a dedicated deployment user (`openhab-deploy`) on your OpenHAB server. This user will have the necessary permissions to:
+
 - Deploy OpenHAB configuration files
 - Deploy receiver application files (`receiver.py` and `config.json`)
 - Restart the OpenHAB and weather-station services (without sudo password prompts)
@@ -59,7 +60,7 @@ sudo find /etc/openhab -type f -exec chmod g+r {} \;
 If the directories don't exist yet, create them with proper permissions:
 
 ```bash
-sudo mkdir -p /etc/openhab/{items,sitemaps,rules,persistence}
+sudo mkdir -p /etc/openhab/{items,sitemaps,rules,persistence,services}
 sudo chown -R openhab:openhab /etc/openhab
 sudo chmod -R g+w /etc/openhab
 ```
@@ -95,6 +96,7 @@ ssh-keygen -t ed25519 -f .ssh/openhab_key -C "openhab-deploy-key" -N ""
 ```
 
 This creates:
+
 - `.ssh/openhab_key` (private key - keep this secure, do NOT commit to git)
 - `.ssh/openhab_key.pub` (public key - safe to share)
 
@@ -113,20 +115,22 @@ ssh-copy-id -i .ssh/openhab_key.pub openhab-deploy@YOUR_SERVER_IP
 ### Option B: Manual Installation
 
 1. Display the public key:
+
    ```bash
    cat .ssh/openhab_key.pub
    ```
 
 2. On the server, as root or with sudo:
+
    ```bash
    # Create .ssh directory if it doesn't exist
    sudo mkdir -p /home/openhab-deploy/.ssh
-   
+
    # Add the public key to authorized_keys
    sudo sh -c "cat >> /home/openhab-deploy/.ssh/authorized_keys" << 'EOF'
    # Paste your public key here (from .ssh/openhab_key.pub)
    EOF
-   
+
    # Set proper permissions
    sudo chown -R openhab-deploy:openhab-deploy /home/openhab-deploy/.ssh
    sudo chmod 700 /home/openhab-deploy/.ssh
@@ -169,6 +173,7 @@ sudo chmod 440 /etc/sudoers.d/openhab-deploy
 ```
 
 **Required permissions:**
+
 - **`restart openhab`**: Needed so the deployment script can restart OpenHAB after pushing new configuration files.
 - **`is-active openhab`**: Allows the deployment script to verify OpenHAB service status during restart verification.
 - **`status openhab`**: Allows checking detailed service status for troubleshooting.
@@ -185,6 +190,7 @@ sudo visudo -c
 ## Step 7: Create the Weather Station Receiver Service (Required for Receiver Deployment)
 
 If you want the deployment script to manage the receiver application, you must create the `weather-station.service` systemd unit on the server **once as root**. The deployment script (`deploy_openhab.py`) will then:
+
 - Deploy `receiver.py` and `config.json` to the remote directory
 - Restart the existing service
 
@@ -319,16 +325,16 @@ python deploy_openhab.py
 1. **OpenHAB Initialization Time**: OpenHAB takes 30-60 seconds to fully initialize after a restart. The deployment script now properly waits for:
    - Systemd to report the service as "active" (up to 30 seconds)
    - OpenHAB REST API to respond (up to 60 seconds)
-   
+
    This ensures OpenHAB is fully ready before considering the deployment successful.
 
-2. **Avoid Rapid Successive Deployments**: 
+2. **Avoid Rapid Successive Deployments**:
    - Do not deploy multiple times in quick succession (within 5-10 minutes)
    - Wait for the previous deployment to complete fully before starting another
    - Rapid restarts can cause bundle lock contention and `BundleException` timeouts
    - If you need to deploy multiple changes, batch them into a single deployment
 
-3. **Monitor Deployment Output**: 
+3. **Monitor Deployment Output**:
    - Watch for "OpenHAB service restarted and fully initialized" message
    - If you see warnings about initialization taking longer than expected, wait before deploying again
    - Check OpenHAB logs if deployments fail: `sudo journalctl -u openhab -f`
@@ -345,34 +351,53 @@ python deploy_openhab.py
 
 If you get "Permission denied" when trying to write files:
 
-1. Verify the user is in the `openhab` group:
+1. **If the error is for `services/rrd4j.cfg`** (or similar): the directory may already be group-writable (`openhab:openhab`, 775), but the _file_ may already exist and be root-owned, so the deploy user cannot overwrite it. Fix by either:
+   - **Option A:** Delete the file and re-run the deployment (the deploy will create it with correct ownership), or
+   - **Option B:** Change ownership so the deploy user can overwrite it:
+
+   ```bash
+   sudo chown openhab:openhab /etc/openhab/services/rrd4j.cfg
+   sudo chown openhab:openhab /etc/openhab/services
+   sudo chmod g+w /etc/openhab/services
+   ```
+
+   Then re-run the deployment.
+
+2. Verify the user is in the `openhab` group:
+
    ```bash
    groups openhab-deploy
    ```
 
-2. Check directory permissions for config directories:
+3. Check directory permissions for config directories:
+
    ```bash
    ls -ld /etc/openhab/items
    ```
+
    Should show group write permission (`drwxrwxr-x` or similar).
 
-3. Verify group ownership for config directories:
+4. Verify group ownership for config directories:
+
    ```bash
    ls -ld /etc/openhab/items | grep openhab
    ```
 
-4. Check jsondb directory permissions (for UI components):
+5. Check jsondb directory permissions (for UI components):
+
    ```bash
    ls -ld /var/lib/openhab/jsondb
    ```
+
    Should show group write permission (`drwxrwxr-x` or similar).
 
-5. Verify group ownership for jsondb directory:
+6. Verify group ownership for jsondb directory:
+
    ```bash
    ls -ld /var/lib/openhab/jsondb | grep openhab
    ```
 
-6. If jsondb directory permissions are incorrect, fix them:
+7. If jsondb directory permissions are incorrect, fix them:
    ```bash
    sudo chgrp openhab /var/lib/openhab/jsondb
    sudo chmod g+w /var/lib/openhab/jsondb
@@ -383,14 +408,17 @@ If you get "Permission denied" when trying to write files:
 If SSH connection fails:
 
 1. Check that the public key is in `~openhab-deploy/.ssh/authorized_keys`:
+
    ```bash
    sudo cat /home/openhab-deploy/.ssh/authorized_keys
    ```
 
 2. Verify file permissions:
+
    ```bash
    sudo ls -la /home/openhab-deploy/.ssh/
    ```
+
    Should show `700` for `.ssh` and `600` for `authorized_keys`.
 
 3. Check SSH server logs:
@@ -403,11 +431,13 @@ If SSH connection fails:
 If service restart fails:
 
 1. Verify sudoers entry:
+
    ```bash
    sudo visudo -c
    ```
 
 2. Test sudo access:
+
    ```bash
    ssh -F .ssh/config openhab "sudo -n systemctl restart openhab"
    ssh -F .ssh/config openhab "sudo -n systemctl is-active openhab"
@@ -416,6 +446,7 @@ If service restart fails:
    # If you created the weather-station service in Step 7:
    ssh -F .ssh/config openhab "sudo -n systemctl restart weather-station"
    ```
+
    The `-n` flag tests passwordless sudo.
 
 3. **Important**: If you see "command not allowed" errors for `is-active` or `status`, the sudoers file needs to be updated with the additional permissions shown in Step 6. This is critical for proper restart verification.
@@ -425,27 +456,35 @@ If service restart fails:
 If OpenHAB fails to restart or experiences `BundleException` timeouts:
 
 1. **Check if OpenHAB is still initializing**:
+
    ```bash
    sudo systemctl status openhab
    ```
+
    If status shows "activating", wait for it to complete before attempting another restart.
 
 2. **Check for rapid successive restarts**:
+
    ```bash
    sudo journalctl -u openhab --since "1 hour ago" | grep -E "(Started|Stopped)"
    ```
+
    If you see multiple restarts within a short time period, wait at least 5-10 minutes between deployments.
 
 3. **Verify OpenHAB is fully ready**:
+
    ```bash
    curl -s http://localhost:8080/rest/ | head -5
    ```
+
    If this doesn't return a response, OpenHAB is still initializing.
 
 4. **Check for bundle lock errors**:
+
    ```bash
    sudo journalctl -u openhab --since "1 hour ago" | grep -i "bundleexception\|timeout\|lock"
    ```
+
    If you see these errors, OpenHAB was restarted too quickly. Wait longer between deployments.
 
 5. **See `server/DEPLOYMENT_RESTART_FIX.md`** for detailed information about restart issues and solutions.
@@ -457,11 +496,13 @@ If the deployment script fails with an error like "Unit weather-station.service 
 1. The systemd service unit must be created manually as root (see Step 7 above).
 
 2. Verify the service exists:
+
    ```bash
    sudo systemctl status weather-station
    ```
 
 3. If the service doesn't exist, create it using the instructions in Step 7, then run:
+
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable weather-station
@@ -495,6 +536,3 @@ sudo userdel -r openhab-deploy
 # Remove from group (if needed)
 sudo gpasswd -d openhab-deploy openhab
 ```
-
-
-
