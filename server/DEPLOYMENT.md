@@ -15,7 +15,7 @@ This guide provides step-by-step instructions for deploying the weather station 
 
 - **OpenHAB**: Installed and running (access at http://weatherstation:8080)
 - **Deployment User**: `openhab-deploy` user configured with proper permissions
-- **Services**: 
+- **Services**:
   - `openhab` service running
   - `weather-station` service created (see `server/SETUP_DEPLOY_USER.md` Step 7)
 - **SSH Access**: Configured via `.ssh/config` using `server-deploy` host
@@ -33,6 +33,7 @@ cd F:\Projects\weather_station
 ```
 
 **Note**: If the virtual environment doesn't exist, create it first:
+
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
@@ -47,6 +48,7 @@ ssh -F .ssh/config server-deploy "echo 'Connection successful'"
 ```
 
 If connection fails, verify:
+
 - SSH keys are in `.ssh/` directory
 - `.ssh/config` has correct `server-deploy` host configuration
 - Remote server is accessible on the network
@@ -60,7 +62,8 @@ python server/deploy_openhab.py
 ```
 
 This will:
-- Deploy OpenHAB configuration files (items, rules, sitemap, persistence)
+
+- Deploy OpenHAB configuration files (items, rules, sitemap, persistence, services)
 - Deploy receiver application (`receiver.py`)
 - Install/update Python dependencies in remote virtual environment
 - Restart `openhab` and `weather-station` services
@@ -74,10 +77,12 @@ python server/deploy_openhab.py --skip-receiver
 ```
 
 This deploys only:
+
 - `weather_station.items`
 - `weather_station.rules`
 - `weather_station.sitemap`
 - `rrd4j.persist`
+- `services/rrd4j.cfg`
 
 And restarts the `openhab` service.
 
@@ -88,6 +93,7 @@ python server/deploy_openhab.py --skip-openhab
 ```
 
 This deploys only:
+
 - `receiver.py`
 - Python dependencies (in remote venv)
 - Restarts the `weather-station` service
@@ -111,6 +117,7 @@ python server/deploy_openhab.py --dry-run
 ```
 
 This shows:
+
 - Files that would be deployed
 - Remote paths
 - Commands that would be executed
@@ -123,6 +130,7 @@ python server/deploy_openhab.py --no-restart
 ```
 
 Useful when:
+
 - You want to deploy files but restart services manually
 - Testing deployment without affecting running services
 - Multiple deployments before restart
@@ -141,19 +149,19 @@ python server/deploy_openhab.py --receiver-dir ~/custom/path/server/src
 
 The `deploy_openhab.py` script supports the following options:
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--skip-receiver` | Skip receiver deployment | False |
-| `--skip-openhab` | Skip OpenHAB config deployment | False |
-| `--no-restart` | Don't restart services after deployment | False |
-| `--dry-run` | Show what would be done without deploying | False |
-| `--receiver_config` | Deploy config.json alongside receiver.py | False |
-| `--receiver-dir` | Remote directory for receiver files | `~/weather_station/server/src` |
-| `--receiver-service-name` | Name of receiver systemd service | `weather-station` |
-| `--remote-dir` | Remote OpenHAB config directory | `/etc/openhab` |
-| `--host` | SSH host alias from `.ssh/config` | `server-deploy` |
-| `--config-dir` | Local OpenHAB config directory | `server/config/openhab_config` |
-| `--ssh-config` | Path to SSH config file | `.ssh/config` |
+| Option                    | Description                               | Default                        |
+| ------------------------- | ----------------------------------------- | ------------------------------ |
+| `--skip-receiver`         | Skip receiver deployment                  | False                          |
+| `--skip-openhab`          | Skip OpenHAB config deployment            | False                          |
+| `--no-restart`            | Don't restart services after deployment   | False                          |
+| `--dry-run`               | Show what would be done without deploying | False                          |
+| `--receiver_config`       | Deploy config.json alongside receiver.py  | False                          |
+| `--receiver-dir`          | Remote directory for receiver files       | `~/weather_station/server/src` |
+| `--receiver-service-name` | Name of receiver systemd service          | `weather-station`              |
+| `--remote-dir`            | Remote OpenHAB config directory           | `/etc/openhab`                 |
+| `--host`                  | SSH host alias from `.ssh/config`         | `server-deploy`                |
+| `--config-dir`            | Local OpenHAB config directory            | `server/config/openhab_config` |
+| `--ssh-config`            | Path to SSH config file                   | `.ssh/config`                  |
 
 ## Verification Procedures
 
@@ -167,6 +175,7 @@ ssh -F .ssh/config server-deploy "ls -la /etc/openhab/items/weather_station.item
 ssh -F .ssh/config server-deploy "ls -la /etc/openhab/rules/weather_station.rules"
 ssh -F .ssh/config server-deploy "ls -la /etc/openhab/sitemaps/weather_station.sitemap"
 ssh -F .ssh/config server-deploy "ls -la /etc/openhab/persistence/rrd4j.persist"
+ssh -F .ssh/config server-deploy "ls -la /etc/openhab/services/rrd4j.cfg"
 
 # Check receiver files
 ssh -F .ssh/config server-deploy "ls -la ~/weather_station/server/src/receiver.py"
@@ -190,6 +199,7 @@ Expected output: `active` for both services.
 ### Verify OpenHAB Items
 
 Access OpenHAB UI:
+
 1. Open browser: http://weatherstation:8080
 2. Navigate to **Settings** → **Items**
 3. Search for "WeatherStation"
@@ -276,6 +286,7 @@ python server/deploy_openhab.py --dry-run
 **Symptoms**: `Error: Authentication failed` or connection timeout
 
 **Solutions**:
+
 1. Verify SSH keys exist: `Test-Path .ssh/deploy_key`
 2. Test SSH connection: `ssh -F .ssh/config server-deploy "echo test"`
 3. Check `.ssh/config` has correct `server-deploy` host
@@ -287,6 +298,7 @@ python server/deploy_openhab.py --dry-run
 **Symptoms**: `Permission denied` when writing files
 
 **Solutions**:
+
 1. Verify deployment user is in `openhab` group:
    ```powershell
    ssh -F .ssh/config server-deploy "groups"
@@ -302,6 +314,7 @@ python server/deploy_openhab.py --dry-run
 **Symptoms**: `Failed to restart service` error
 
 **Solutions**:
+
 1. Verify service exists:
    ```powershell
    ssh -F .ssh/config server-deploy "sudo systemctl list-units | grep weather-station"
@@ -318,6 +331,7 @@ python server/deploy_openhab.py --dry-run
 **Symptoms**: Files exist but OpenHAB doesn't load them
 
 **Solutions**:
+
 1. Check file permissions (OpenHAB user must be able to read):
    ```powershell
    ssh -F .ssh/config server-deploy "sudo -u openhab test -r /etc/openhab/items/weather_station.items && echo 'Readable'"
@@ -335,11 +349,26 @@ python server/deploy_openhab.py --dry-run
    ssh -F .ssh/config server-deploy "sudo systemctl restart openhab"
    ```
 
+### Persistence or charts show gaps after deploying rrd4j.cfg
+
+**Symptoms**: Weather station data was persisted before deploying the custom RRD4J datasource (4–30 min heartbeat). Charts or persistence queries show gaps or odd behavior.
+
+**Cause**: Existing `.rrd` files were created with the default 10 min heartbeat; OpenHAB may keep using them.
+
+**Solution**: Remove the weather station RRD files and restart OpenHAB so new files are created with the custom datasource:
+
+```powershell
+ssh -F .ssh/config server-deploy "sudo systemctl stop openhab"
+ssh -F .ssh/config server-deploy "sudo rm /var/lib/openhab/persistence/rrd4j/WeatherStation_*.rrd"
+ssh -F .ssh/config server-deploy "sudo systemctl start openhab"
+```
+
 ### Python Dependencies Not Installing
 
 **Symptoms**: Receiver service fails with import errors
 
 **Solutions**:
+
 1. Check remote virtual environment exists:
    ```powershell
    ssh -F .ssh/config server-deploy "test -x ~/weather_station/server/src/.venv/bin/python && echo 'Exists'"
@@ -399,4 +428,3 @@ python server/deploy_openhab.py --remote-dir /opt/openhab --receiver-dir ~/custo
 - Always use `server-deploy` host for deployments (not `server` admin host)
 - Verify deployment user permissions before first deployment
 - Review `server/SETUP_DEPLOY_USER.md` for security best practices
-
