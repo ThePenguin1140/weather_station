@@ -430,10 +430,13 @@ def deploy_files(
         'weather_station.sitemap': f'{remote_base_dir}/sitemaps/weather_station.sitemap',
         'weather_station.rules': f'{remote_base_dir}/rules/weather_station.rules',
         'rrd4j.persist': f'{remote_base_dir}/persistence/rrd4j.persist',
+        'services/rrd4j.cfg': f'{remote_base_dir}/services/rrd4j.cfg',
         'uicomponents_ui_page.json': '/var/lib/openhab/jsondb/uicomponents_ui_page.json',  # Will be updated with actual userdata path
     }
     deployed_count = 0
-    
+    openhab_failed_count = 0
+    openhabian_conf_failed = False
+
     if dry_run:
         print("DRY RUN - No files will be deployed")
         print(f"\nUsing SSH host: {host}")
@@ -518,8 +521,8 @@ def deploy_files(
                 )
         if restart_service and deploy_openhab_config:
             print("\nWould restart OpenHAB service")
-        return
-    
+        return True
+
     # Connect to server
     print(f"Using SSH host: {host}")
     print(f"Connecting to {ssh_config['user']}@{ssh_config['hostname']}...")
@@ -590,6 +593,7 @@ def deploy_files(
             'weather_station.sitemap': f'{actual_config_base}/sitemaps/weather_station.sitemap',
             'weather_station.rules': f'{actual_config_base}/rules/weather_station.rules',
             'rrd4j.persist': f'{actual_config_base}/persistence/rrd4j.persist',
+            'services/rrd4j.cfg': f'{actual_config_base}/services/rrd4j.cfg',
             'uicomponents_ui_page.json': f'{actual_userdata_base}/jsondb/uicomponents_ui_page.json',
         }
         
@@ -615,6 +619,7 @@ def deploy_files(
                 f"{actual_config_base}/sitemaps",
                 f"{actual_config_base}/rules",
                 f"{actual_config_base}/persistence",
+                f"{actual_config_base}/services",
                 f"{actual_userdata_base}/jsondb",
                 f"{actual_userdata_base}/ui/widgets"
             ]:
@@ -642,12 +647,13 @@ def deploy_files(
                 
                 print(f"  Deploying {local_file} -> {remote_path}...")
                 
-                # Copy to temp location in user's home directory
-                temp_path = f"{temp_dir}/{local_file}"
+                # Copy to temp location in user's home directory (flatten path so no subdirs needed)
+                temp_path = f"{temp_dir}/{local_file.replace('/', '_')}"
                 try:
                     scp.put(str(local_path), temp_path)
                 except Exception as e:
                     print(f"    ✗ SCP failed for {local_file}: {e}")
+                    openhab_failed_count += 1
                     continue
                 
                 # Copy to final location and try to set permissions
@@ -670,6 +676,7 @@ def deploy_files(
                 else:
                     error = stderr_text
                     print(f"    ✗ Failed to deploy {local_file}: {error}")
+                    openhab_failed_count += 1
             
             # Deploy widget files
             print("\nDeploying widget files...")
@@ -688,6 +695,7 @@ def deploy_files(
                     scp.put(str(local_path), temp_path)
                 except Exception as e:
                     print(f"    ✗ SCP failed for {local_file}: {e}")
+                    openhab_failed_count += 1
                     continue
                 
                 # Copy to final location and try to set permissions
@@ -710,6 +718,7 @@ def deploy_files(
                 else:
                     error = stderr_text
                     print(f"    ✗ Failed to deploy {local_file}: {error}")
+                    openhab_failed_count += 1
             
             scp.close()
         
@@ -839,6 +848,7 @@ def deploy_files(
                     )
                 except Exception as e:
                     print(f"  ✗ Failed to deploy openhabian.conf: {e}")
+                    openhabian_conf_failed = True
                 finally:
                     try:
                         scp.close()
@@ -856,23 +866,47 @@ def deploy_files(
                 restart_service=restart_service,
             )
 
-        print(f"\n✓ Deployment complete! ({deployed_count} OpenHAB files deployed)")
-        if deploy_receiver:
-            if receiver_ok:
-                if restart_service:
-                    print(
-                        f"✓ Receiver files deployed and service "
-                        f"'{receiver_service_name}' restarted"
-                    )
-                else:
-                    print(
-                        f"✓ Receiver files deployed (service restart skipped due to --no-restart)"
-                    )
+        openhab_has_failures = deploy_openhab_config and (
+            openhab_failed_count > 0
+            or (deploy_openhabian_conf and openhabian_conf_failed)
+        )
+        overall_ok = not openhab_has_failures and (
+            not deploy_receiver or receiver_ok
+        )
+
+        if overall_ok:
+            if deploy_openhab_config:
+                print(f"\n✓ Deployment complete! ({deployed_count} OpenHAB files deployed)")
             else:
+                print("\n✓ Deployment complete!")
+            if deploy_receiver:
+                if receiver_ok:
+                    if restart_service:
+                        print(
+                            f"✓ Receiver files deployed and service "
+                            f"'{receiver_service_name}' restarted"
+                        )
+                    else:
+                        print(
+                            f"✓ Receiver files deployed (service restart skipped due to --no-restart)"
+                        )
+        else:
+            print("\n✗ Deployment completed with errors.")
+            if openhab_failed_count > 0:
                 print(
-                    f"✗ Receiver deployment encountered issues (see output above)"
+                    f"  OpenHAB: {deployed_count} files deployed, "
+                    f"{openhab_failed_count} failed."
                 )
-        
+            if deploy_openhabian_conf and openhabian_conf_failed:
+                print("  openhabian.conf deployment failed.")
+            if deploy_receiver and not receiver_ok:
+                print(
+                    f"  ✗ Receiver deployment encountered issues (see output above)"
+                )
+            print("  Check output above for details.")
+
+        return overall_ok
+
     except paramiko.AuthenticationException:
         print("Error: Authentication failed. Check your SSH key.")
         sys.exit(1)
@@ -999,7 +1033,7 @@ weather-station service once as root in Step 7).
         print(f"Error: SSH config file not found: {ssh_config_path}")
         sys.exit(1)
     
-    deploy_files(
+    result = deploy_files(
         ssh_config_path=str(ssh_config_path),
         local_config_dir=args.config_dir,
         remote_base_dir=args.remote_dir,
@@ -1013,6 +1047,7 @@ weather-station service once as root in Step 7).
         deploy_receiver_config=args.receiver_config,
         deploy_openhabian_conf=args.openhab_config,
     )
+    sys.exit(0 if result else 1)
 
 
 if __name__ == '__main__':
