@@ -30,11 +30,11 @@ rule "Weather Station Data Stale Check"
 when
     Time cron "0 */5 * * * ?"  // Every 5 minutes
 then
-    // Check if data is stale (no updates in last 10 minutes)
+    // Check if data is stale (no updates in last 35 minutes; data normally every 4-30 min)
     val lastUpdate = WeatherStation_Temperature.lastUpdate
     if (lastUpdate !== null) {
         val minutesSinceUpdate = now.toInstant().toEpochMilli() - lastUpdate.toInstant().toEpochMilli()
-        if (minutesSinceUpdate > 600000) {  // 10 minutes in milliseconds
+        if (minutesSinceUpdate > 2100000) {  // 35 minutes in milliseconds
             logWarn("WeatherStation", "Weather station data appears stale (last update: {})", lastUpdate)
         }
     }
