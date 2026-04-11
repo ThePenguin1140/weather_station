@@ -27,6 +27,12 @@ Number:Angle WeatherStation_WindDirection "Wind Direction [%.0f °]" <wind> (Wea
 // Wind Speed from anemometer
 Number:Speed WeatherStation_WindSpeed "Wind Speed [%.2f km/h]" <wind> (WeatherStation)
 
+// Voltage sensor on A0
+Number:ElectricPotential WeatherStation_Voltage "Voltage [%.3f V]" <energy> (WeatherStation)
+
+// Light sensor on A1
+Number:Dimensionless WeatherStation_Light "Light Level [%.0f]" <light> (WeatherStation)
+
 
 
 

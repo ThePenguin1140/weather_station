@@ -19,8 +19,10 @@
 // Status LED
 #define LED_PIN 13
 
-// Wind Speed Sensor (Analog Pin)
+// Analog Sensor Pins
 #define WIND_SPEED_PIN A2
+#define VOLTAGE_PIN A0
+#define LIGHT_PIN A1
 
 // BME280 I2C Address (usually 0x76 or 0x77)
 #define BME280_ADDRESS 0x76
@@ -86,13 +88,15 @@ const unsigned long STATUS_LOG_INTERVAL_BASE = 30000UL;  // Log status every 30 
 unsigned long statusLogInterval = 0;  // Will be initialized in setup() based on ENABLE_POWER_SAVING
 
 // Sensor data structure (packed to match Python struct.unpack format)
-// struct size representation: <iIHHi
+// struct size representation: <iIHHiHH
 struct __attribute__((packed)) SensorData {
   int32_t temperature;     // Raw temperature in Celsius
   uint32_t pressure;       // Raw pressure in Pascals
   uint16_t humidity;       // Raw humidity in %
   uint16_t windDirection;  // Wind direction in degrees (0-360), rounded to nearest whole degree
   int32_t windSpeed;       // Calculated wind speed in km/h
+  uint16_t voltage;        // Supply voltage in millivolts (0-5000)
+  uint16_t light;          // Light level, raw ADC (0-1023)
 };
 
 void setup() {
@@ -372,6 +376,12 @@ SensorData readSensors() {
     DEBUG_PRINTLN(F("Warning: AS5600 read failed"));
   }
 
+  // Read Voltage (A0) - convert ADC reading to millivolts (0-5000 mV)
+  data.voltage = (uint16_t)((analogRead(VOLTAGE_PIN) * 5000UL) / 1024);
+
+  // Read Light Level (A1) - raw ADC value (0-1023)
+  data.light = (uint16_t)analogRead(LIGHT_PIN);
+
   // Read Wind Speed (analog sensor)
   // Apply calibration offset to raw analog reading
   int rawReading = analogRead(WIND_SPEED_PIN);
@@ -391,16 +401,20 @@ void transmitData(SensorData data) {
   const size_t data_size = sizeof(data);
   bool success = false;
   radio.stopListening();
-  DEBUG_PRINT(F("Transmitting | "));
-  DEBUG_PRINT(data.temperature);
-  DEBUG_PRINT(F(" | "));
-  DEBUG_PRINT(data.pressure);
-  DEBUG_PRINT(F(" | "));
-  DEBUG_PRINT(data.humidity);
-  DEBUG_PRINT(F(" | "));
-  DEBUG_PRINT(data.windDirection);
-  DEBUG_PRINT(F(" | "));
-  DEBUG_PRINTLN(data.windSpeed);
+  Serial.print(F("Transmitting | "));
+  Serial.print(data.temperature);
+  Serial.print(F(" | "));
+  Serial.print(data.pressure);
+  Serial.print(F(" | "));
+  Serial.print(data.humidity);
+  Serial.print(F(" | "));
+  Serial.print(data.windDirection);
+  Serial.print(F(" | "));
+  Serial.print(data.windSpeed);
+  Serial.print(F(" | "));
+  Serial.print(data.voltage);
+  Serial.print(F(" | "));
+  Serial.println(data.light);
   // NOTE: Send compact binary struct instead of JSON string to stay under 32-byte NRF24 payload limit
   success = radio.write(&data, data_size);
 

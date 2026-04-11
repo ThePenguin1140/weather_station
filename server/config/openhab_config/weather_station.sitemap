@@ -93,6 +93,14 @@ sitemap weather_station label="Weather Station Dashboard" {
     }
     
     // ============================================
+    // ADDITIONAL SENSORS
+    // ============================================
+    Frame label="Additional Sensors" icon="sensors" {
+        Text item=WeatherStation_Voltage icon="energy"
+        Text item=WeatherStation_Light icon="light"
+    }
+
+    // ============================================
     // ALL SENSORS - Quick Reference
     // ============================================
     Frame label="All Sensors - Quick View" icon="sensors" {

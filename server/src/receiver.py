@@ -117,7 +117,7 @@ class WeatherStationReceiver:
             Parsed sensor data dictionary or None if parsing fails
         """
         try:
-            SENSOR_DATA_FORMAT = "<iIHHi"
+            SENSOR_DATA_FORMAT = "<iIHHiHH"
             expected_size = struct.calcsize(SENSOR_DATA_FORMAT)
             if len(data_bytes) != expected_size:
                 # Check if payload is padded with zeros (common with NRF24L01 fixed 32-byte payload)
@@ -144,7 +144,7 @@ class WeatherStationReceiver:
                     if len(data_bytes) < expected_size:
                         return None
 
-            temperature, pressure_pa, humidity, wind_direction_deg, wind_speed = struct.unpack(
+            temperature, pressure_pa, humidity, wind_direction_deg, wind_speed, voltage_mv, light = struct.unpack(
                 SENSOR_DATA_FORMAT, data_bytes[:expected_size]
             )
             temperature = temperature / 100.0
@@ -187,6 +187,8 @@ class WeatherStationReceiver:
                 "humidity": float(humidity),
                 "wind_direction": int(wind_direction_deg),  # Already in degrees (0-360) from Arduino
                 "wind_speed": float(wind_speed),
+                "voltage": round(voltage_mv / 1000.0, 3),  # Convert mV → V
+                "light": int(light),                        # Raw ADC 0-1023
             }
 
             return data
