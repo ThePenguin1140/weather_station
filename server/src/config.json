@@ -14,7 +14,8 @@
     "light": "WeatherStation_Light"
   },
   "sea_level_pressure": 1013.25,
-  "wind_direction_offset": -120.0
+  "wind_direction_offset": -120.0,
+  "openhab_api_token": "oh.claude.2psRoKF9WnslQfsde6ujUT606ZFeUlCwhmtC9A2f5vL0nTJAFjjB1UsHGyPR1Dd01V2X59pnex1Flz2o99w"
 }
 
 
