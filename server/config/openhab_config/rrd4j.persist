@@ -20,20 +20,10 @@
 // - Charts: Use chart widgets in the UI
 
 Strategies {
-    // Store every change (for high-frequency updates)
-    everyChange : "everyChange"
-    
-    // Store every minute (for consistent time series)
-    everyMinute : "0 * * * * ?"
-    
-    // Store every 5 minutes (for longer-term trends)
+    everyMinute   : "0 * * * * ?"
     every5Minutes : "0 */5 * * * ?"
-    
-    // Store every hour (for daily/weekly trends)
-    everyHour : "0 0 * * * ?"
-    
-    // Store once per day (for long-term storage)
-    everyDay : "0 0 0 * * ?"
+    everyHour     : "0 0 * * * ?"
+    everyDay      : "0 0 0 * * ?"
 }
 
 Items {
