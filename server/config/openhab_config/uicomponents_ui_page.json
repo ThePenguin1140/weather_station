@@ -100,6 +100,30 @@
                           "actionPage": "page:page_temperature_chart",
                           "item": "WeatherStation_Temperature"
                         }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "action": "navigate",
+                          "actionPage": "page:page_altitude_chart",
+                          "item": "WeatherStation_Altitude"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "action": "navigate",
+                          "actionPage": "page:page_voltage_chart",
+                          "item": "WeatherStation_Voltage"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "action": "navigate",
+                          "actionPage": "page:page_light_chart",
+                          "item": "WeatherStation_Light"
+                        }
                       }
                     ]
                   }
@@ -158,7 +182,7 @@
               "yAxisIndex": 0,
               "noBoundary": true,
               "noItemState": true,
-              "service": "rrd4j"
+              "service": "jdbc"
             }
           },
           {
@@ -172,7 +196,7 @@
               "yAxisIndex": 1,
               "noBoundary": true,
               "noItemState": true,
-              "service": "rrd4j"
+              "service": "jdbc"
             }
           }
         ],
@@ -248,7 +272,7 @@
               "yAxisIndex": 0,
               "noBoundary": true,
               "noItemState": true,
-              "service": "rrd4j"
+              "service": "jdbc"
             }
           }
         ],
@@ -316,7 +340,7 @@
               "yAxisIndex": 0,
               "noBoundary": true,
               "noItemState": true,
-              "service": "rrd4j"
+              "service": "jdbc"
             }
           }
         ],
@@ -384,7 +408,211 @@
               "yAxisIndex": 0,
               "noBoundary": true,
               "noItemState": true,
-              "service": "rrd4j"
+              "service": "jdbc"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_altitude_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_altitude_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Apr 12, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Altitude",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_Altitude",
+              "name": "Altitude",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "jdbc"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_voltage_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_voltage_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Apr 12, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Voltage",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_Voltage",
+              "name": "Voltage",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "jdbc"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_light_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_light_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Apr 12, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Light",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_Light",
+              "name": "Light",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "jdbc"
             }
           }
         ],
@@ -452,7 +680,7 @@
               "yAxisIndex": 0,
               "noBoundary": true,
               "noItemState": true,
-              "service": "rrd4j"
+              "service": "jdbc"
             }
           }
         ],
