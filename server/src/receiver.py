@@ -54,7 +54,9 @@ class WeatherStationReceiver:
             'altitude': 'WeatherStation_Altitude',
             'humidity': 'WeatherStation_Humidity',
             'wind_direction_deg': 'WeatherStation_WindDirection',
-            'wind_speed': 'WeatherStation_WindSpeed'
+            'wind_speed': 'WeatherStation_WindSpeed',
+            'voltage': 'WeatherStation_Voltage',
+            'light': 'WeatherStation_Light',
         })
         
         # Sea level pressure for altitude calculation
