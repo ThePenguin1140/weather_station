@@ -78,63 +78,15 @@ Adafruit_AS5600 as5600;
 bool bmeInitialized = false;
 bool as5600Initialized = false;
 
-// Transmission timing (non-blocking)
-unsigned long lastTransmissionTime = 0;
-unsigned long lastStatusLogTime = 0;
-unsigned long transmissionInterval = 0;  // Will be initialized in setup() based on ENABLE_POWER_SAVING
-// Base interval in milliseconds (at 16MHz clock)
-// When clock is divided by 8 (2MHz), millis() runs 8x slower, so we need 8x the count
-const unsigned long STATUS_LOG_INTERVAL_BASE = 30000UL;  // Log status every 30 seconds (at 16MHz)
-unsigned long statusLogInterval = 0;  // Will be initialized in setup() based on ENABLE_POWER_SAVING
-
-// Sensor data structure (packed to match Python struct.unpack format)
-// struct size representation: <iIHHiHH
-struct __attribute__((packed)) SensorData {
-  int32_t temperature;     // Raw temperature in Celsius
-  uint32_t pressure;       // Raw pressure in Pascals
-  uint16_t humidity;       // Raw humidity in %
-  uint16_t windDirection;  // Wind direction in degrees (0-360), rounded to nearest whole degree
-  int32_t windSpeed;       // Calculated wind speed in km/h
-  uint16_t voltage;        // Supply voltage in millivolts (0-5000)
-  uint16_t light;          // Light level, raw ADC (0-1023)
-};
-
 void setup() {
   // Initialize Serial for debugging
   DEBUG_SERIAL_BEGIN(9600);
 
-  DEBUG_PRINTLN(F("Weather Station Transmitter Starting..."));
-
-  // Initialize transmission and status log intervals based on power saving mode
-  // When clock is divided by 8 (2MHz), millis() runs 8x slower, so we need 8x the count
-  // to achieve the same real-world time interval
-  #if ENABLE_POWER_SAVING
-    transmissionInterval = TRANSMISSION_INTERVAL_BASE / TIMING_SCALER;
-    statusLogInterval = STATUS_LOG_INTERVAL_BASE / TIMING_SCALER;
-  #else
-    transmissionInterval = TRANSMISSION_INTERVAL_BASE;
-    statusLogInterval = STATUS_LOG_INTERVAL_BASE;
-  #endif
-
-  // Lower clock frequency for power savings (divide by 8 = 2MHz from 16MHz)
-  // This reduces power consumption significantly while maintaining I2C/SPI functionality
-  // NOTE: Clock prescaler change breaks serial communication timing
-  // Set ENABLE_POWER_SAVING to false above to disable this for debugging
-  #if ENABLE_POWER_SAVING
-    noInterrupts();
-    CLKPR = _BV(CLKPCE); // 0x80
-    CLKPR = _BV(CLKPS1 | CLKPS0); // 0x03
-    interrupts();
-    DEBUG_PRINTLN(F("Power saving mode enabled"));
-  #else
-    DEBUG_PRINTLN(F("Debug mode: Full speed"));
-  #endif
-
-  // Print actual clock frequency
-  // F_CPU is defined at compile-time by Arduino build system based on board selection
-  // It represents the base CPU frequency before any prescaler changes
+  // Lower clock frequency for power savings (divide by 4 = 4MHz from 16MHz)
+  // 4MHz improves I2C/SPI reliability over 2MHz while still saving power
   noInterrupts();
-  uint8_t clkpr = CLKPR & 0x0F;  // Read prescaler bits (CLKPS3:0)
+  CLKPR = (1 << CLKPCE);  // Enable clock prescaler change
+  CLKPR = (1 << CLKPS1);  // Divide by 4 (4MHz)
   interrupts();
   
   // Calculate frequency based on prescaler
