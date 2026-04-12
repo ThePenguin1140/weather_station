@@ -1,0 +1,23 @@
+// JDBC (SQLite) Persistence Configuration for Weather Station
+// Deployed by deploy_openhab.py to /etc/openhab/persistence/jdbc.persist
+//
+// Replaces rrd4j.persist — SQLite handles Number:Temperature and other UoM
+// item types correctly, unlike RRD4J which stores data but can't query it back.
+
+Strategies {
+    everyHour : "0 0 * * * ?"
+    everyDay  : "0 0 0 * * ?"
+
+    default = everyChange
+}
+
+Items {
+    WeatherStation_Temperature    : strategy = everyChange, everyHour
+    WeatherStation_Pressure       : strategy = everyChange, everyHour
+    WeatherStation_Altitude       : strategy = everyChange, everyHour
+    WeatherStation_Humidity       : strategy = everyChange, everyHour
+    WeatherStation_WindDirection  : strategy = everyChange, everyHour
+    WeatherStation_WindSpeed      : strategy = everyChange, everyHour
+    WeatherStation_Voltage        : strategy = everyChange, everyHour
+    WeatherStation_Light          : strategy = everyChange, everyHour
+}
