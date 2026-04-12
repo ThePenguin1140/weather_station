@@ -11,6 +11,9 @@
 #include <Wire.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_AS5600.h>
+#include <avr/wdt.h>
+#include <avr/sleep.h>
+#include "sensor_data.h"
 
 // NRF24L01 Pin Configuration
 #define CE_PIN 9
@@ -48,13 +51,14 @@
 #endif
 
 // Transmission Configuration
-// Base interval in milliseconds (at 16MHz clock)
-// When clock is divided by 8 (2MHz), millis() runs 8x slower, so we need 8x the count
-// to achieve the same real-world time interval
-const unsigned long TRANSMISSION_INTERVAL_BASE = 5UL * 60UL * 1000UL;  
-const unsigned long TIMING_SCALER = 8UL;
-const unsigned long ONE_SECOND = 1000 / TIMING_SCALER;
+#define SLEEP_CYCLES 38  // 38 × 8s ≈ 304s (~5 min)
 #define MAX_RETRIES 3
+
+volatile uint8_t wdt_count = 0;
+
+ISR(WDT_vect) {
+  wdt_count++;
+}
 
 // Hardware Calibration Constants
 #define WIND_DIRECTION_OFFSET 0        // Raw angle offset for magnet alignment (0-4095 range)
@@ -198,96 +202,29 @@ void setup() {
   blinkLED(3);  // Success indicator
 }
 
+void sleepWatchdog(uint8_t cycles) {
+  // Configure WDT: interrupt mode only, 8-second timeout
+  MCUSR &= ~(1 << WDRF);
+  WDTCSR |= (1 << WDCE) | (1 << WDE);
+  WDTCSR = (1 << WDIE) | (1 << WDP3) | (1 << WDP0);  // 8s, interrupt only (no reset)
+
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+
+  wdt_count = 0;
+  while (wdt_count < cycles) {
+    sei();
+    sleep_cpu();  // Wakes on WDT interrupt, loops back to sleep
+  }
+
+  sleep_disable();
+  wdt_disable();
+}
+
 void loop() {
-  // Non-blocking transmission interval using millis()
-  unsigned long currentTime = millis();
-  
-  // Check if enough time has passed since last transmission
-  // Handle millis() overflow properly
-  bool shouldTransmit = false;
-  unsigned long elapsedForTransmit = 0;
-  
-  if (lastTransmissionTime == 0) {
-    // First transmission - always transmit
-    shouldTransmit = true;
-    elapsedForTransmit = 0;
-  } else if (currentTime >= lastTransmissionTime) {
-    // Normal case: no overflow
-    elapsedForTransmit = currentTime - lastTransmissionTime;
-    shouldTransmit = (elapsedForTransmit >= transmissionInterval);
-  } else {
-    // Overflow occurred - enough time has definitely passed
-    shouldTransmit = true;
-    elapsedForTransmit = ((unsigned long)-1 - lastTransmissionTime) + currentTime + 1;
-  }
-  
-  if (shouldTransmit) {
-    DEBUG_PRINT(F("Transmission triggered (elapsed: "));
-    DEBUG_PRINT(elapsedForTransmit);
-    DEBUG_PRINT(F("ms >= interval: "));
-    DEBUG_PRINT(transmissionInterval);
-    DEBUG_PRINTLN(F("ms)"));
-    SensorData data = readSensors();
-    transmitData(data);
-    lastTransmissionTime = currentTime;  // Update last transmission time
-    lastStatusLogTime = currentTime;     // Reset status log timer after transmission
-  }
-  
-  // Log time remaining until next transmission (every statusLogInterval)
-  // Handle overflow in status log interval check
-  bool shouldLogStatus = false;
-  if (lastStatusLogTime == 0) {
-    shouldLogStatus = true;
-  } else if (currentTime >= lastStatusLogTime) {
-    shouldLogStatus = (currentTime - lastStatusLogTime >= statusLogInterval);
-  } else {
-    // Overflow occurred - log status
-    shouldLogStatus = true;
-  }
-  
-  if (shouldLogStatus) {
-    // Handle millis() overflow and initial state
-    unsigned long elapsed;
-    if (lastTransmissionTime == 0) {
-      // First transmission hasn't happened yet
-      elapsed = 0;
-    } else if (currentTime >= lastTransmissionTime) {
-      // Normal case: no overflow
-      elapsed = currentTime - lastTransmissionTime;
-    } else {
-      // Overflow occurred - elapsed wraps around
-      // This means we're very close to next transmission (or past it)
-      elapsed = ((unsigned long)-1 - lastTransmissionTime) + currentTime + 1;
-    }
-    
-    // Calculate remaining time, handling overflow/underflow
-    unsigned long remaining;
-    if (elapsed >= transmissionInterval) {
-      // Time has passed - should transmit
-      remaining = 0;
-    } else {
-      remaining = transmissionInterval - elapsed;
-    }
-    
-    // Calculate minutes and seconds remaining
-    unsigned long minutesRemaining = remaining / 60000;
-    unsigned long secondsRemaining = (remaining % 60000) / 1000;
-    
-    DEBUG_PRINT(F("Next transmission in: "));
-    DEBUG_PRINT(minutesRemaining);
-    DEBUG_PRINT(F("m "));
-    DEBUG_PRINT(secondsRemaining);
-    DEBUG_PRINT(F("s (elapsed: "));
-    DEBUG_PRINT(elapsed);
-    DEBUG_PRINT(F("ms, interval: "));
-    DEBUG_PRINT(transmissionInterval);
-    DEBUG_PRINTLN(F("ms)"));
-  
-    lastStatusLogTime = currentTime;
-  }
-  
-  // Small delay to prevent tight loop (optional, but good practice)
-  delay(1000);
+  SensorData data = readSensors();
+  transmitData(data);
+  sleepWatchdog(SLEEP_CYCLES);
 }
 
 SensorData readSensors() {
