@@ -431,6 +431,8 @@ def deploy_files(
         'weather_station.rules': f'{remote_base_dir}/rules/weather_station.rules',
         'rrd4j.persist': f'{remote_base_dir}/persistence/rrd4j.persist',
         'services/rrd4j.cfg': f'{remote_base_dir}/services/rrd4j.cfg',
+        'jdbc.persist': f'{remote_base_dir}/persistence/jdbc.persist',
+        'jdbc.cfg': f'{remote_base_dir}/services/jdbc.cfg',
         'uicomponents_ui_page.json': '/var/lib/openhab/jsondb/uicomponents_ui_page.json',  # Will be updated with actual userdata path
     }
     deployed_count = 0
@@ -593,7 +595,8 @@ def deploy_files(
             'weather_station.sitemap': f'{actual_config_base}/sitemaps/weather_station.sitemap',
             'weather_station.rules': f'{actual_config_base}/rules/weather_station.rules',
             'rrd4j.persist': f'{actual_config_base}/persistence/rrd4j.persist',
-            'services/rrd4j.cfg': f'{actual_config_base}/services/rrd4j.cfg',
+            'jdbc.persist': f'{actual_config_base}/persistence/jdbc.persist',
+            'jdbc.cfg': f'{actual_config_base}/services/jdbc.cfg',
             'uicomponents_ui_page.json': f'{actual_userdata_base}/jsondb/uicomponents_ui_page.json',
         }
         
