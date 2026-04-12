@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(commit-commands:commit)",
+      "Bash(arduino-cli compile:*)",
+      "Bash(arduino-cli version:*)",
+      "Bash(arduino-cli core:*)",
+      "Bash(arduino-cli lib:*)",
+      "Bash(/mnt/c/Users/jason/.pyenv/pyenv-win/versions/3.11.9/python.exe:*)",
+      "Bash(ssh:*)",
+      "Bash(stty -F /dev/ttyS4 2400 raw)",
+      "Bash(timeout 15 cat /dev/ttyS4)",
+      "Bash(ls /dev/ttyS*)",
+      "Read(//proc/tty/driver/**)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import json; print\\(json.load\\(open\\('server/src/config.json'\\)\\)['openhab_api_token']\\)\")",
+      "Bash(curl -s -H 'Authorization: Bearer __TRACKED_VAR__' __TRACKED_VAR__/rest/items/__TRACKED_VAR__/state)",
+      "Bash(venv/bin/python3:*)",
+      "Bash(/mnt/f/Projects/weather_station/.venv/Scripts/python.exe:*)",
+      "Bash(python3:*)",
+      "Bash(git -C /mnt/f/Projects/weather_station log --oneline)",
+      "WebSearch",
+      "Bash(git:*)"
+    ]
+  }
+}
