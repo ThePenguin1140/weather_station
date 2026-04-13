@@ -284,7 +284,7 @@ SensorData readSensors() {
   // Calculate wind speed using voltage divider formula with hardware constants
   float vout = (calibratedRaw * WIND_SPEED_VIN_REF) / 1024.0;
   float vin = vout / (WIND_SPEED_R2 / (WIND_SPEED_R1 + WIND_SPEED_R2));
-  data.windSpeed = (int32_t)constrain(vin * WIND_SPEED_KOR, 0, 1000) * 100;
+  data.windSpeed = (int32_t)(constrain(vin * WIND_SPEED_KOR, 0, 1000.0f) * 100);
 
   return data;
 }
