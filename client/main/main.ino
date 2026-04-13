@@ -263,7 +263,7 @@ SensorData readSensors() {
     int calibratedRaw = ((rawAngle + WIND_DIRECTION_OFFSET) % 4096 + 4096) % 4096;
     // Convert to degrees (0-360) and round to nearest whole degree
     float degrees = (calibratedRaw / 4096.0) * 360.0;
-    data.windDirection = (uint16_t)round(degrees) % 360;  // Perfect angle: 0-360 degrees, rounded
+    data.windDirection = (uint16_t)round(degrees) % 360;  // Wind direction in degrees, 0-359
   } else {
     // Set error value if sensor not available
     data.windDirection = 0;
