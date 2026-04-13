@@ -292,28 +292,20 @@ SensorData readSensors() {
 void transmitData(SensorData data) {
   const size_t data_size = sizeof(data);
   bool success = false;
-  radio.stopListening();
-  Serial.print(F("Transmitting | "));
-  Serial.print(data.temperature);
-  Serial.print(F(" | "));
-  Serial.print(data.pressure);
-  Serial.print(F(" | "));
-  Serial.print(data.humidity);
-  Serial.print(F(" | "));
-  Serial.print(data.windDirection);
-  Serial.print(F(" | "));
-  Serial.print(data.windSpeed);
-  Serial.print(F(" | "));
-  Serial.print(data.voltage);
-  Serial.print(F(" | "));
-  Serial.println(data.light);
   // NOTE: Send compact binary struct instead of JSON string to stay under 32-byte NRF24 payload limit
   success = radio.write(&data, data_size);
 
   if (success) {
     DEBUG_PRINT(F("✓ Transmitted "));
     DEBUG_PRINT(data_size);
-    DEBUG_PRINTLN(" bytes successfully");
+    DEBUG_PRINTLN(F(" bytes successfully"));
+    DEBUG_PRINT(F("  temp="));       DEBUG_PRINT(data.temperature);
+    DEBUG_PRINT(F(" pres="));        DEBUG_PRINT(data.pressure);
+    DEBUG_PRINT(F(" hum="));         DEBUG_PRINT(data.humidity);
+    DEBUG_PRINT(F(" wdir="));        DEBUG_PRINT(data.windDirection);
+    DEBUG_PRINT(F(" wspd="));        DEBUG_PRINT(data.windSpeed);
+    DEBUG_PRINT(F(" vcc="));         DEBUG_PRINT(data.voltage);
+    DEBUG_PRINT(F(" light="));       DEBUG_PRINTLN(data.light);
     blinkLED(1);
   } else {
     DEBUG_PRINTLN(F("✗ Transmission failed"));
