@@ -256,7 +256,7 @@ SensorData readSensors() {
   if (as5600Initialized) {
     // Apply calibration offset to raw angle
     int rawAngle = as5600.getRawAngle();
-    int calibratedRaw = (rawAngle + WIND_DIRECTION_OFFSET) % 4096;
+    int calibratedRaw = ((rawAngle + WIND_DIRECTION_OFFSET) % 4096 + 4096) % 4096;
     // Convert to degrees (0-360) and round to nearest whole degree
     float degrees = (calibratedRaw / 4096.0) * 360.0;
     data.windDirection = (uint16_t)round(degrees) % 360;  // Perfect angle: 0-360 degrees, rounded
