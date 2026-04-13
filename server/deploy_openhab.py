@@ -634,96 +634,96 @@ def deploy_files(
             # Deploy OpenHAB configuration files using SCP
             print("\nDeploying OpenHAB configuration files...")
             scp = SCPClient(ssh.get_transport())
-            
-            temp_dir = f"{home_dir}/.openhab-deploy-tmp"
-            exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, f"mkdir -p {temp_dir}")
-            if exit_status != 0:
-                error = stderr_text
-                print(f"  Warning: Failed to create temp directory {temp_dir}: {error}")
-            
-            for local_file, remote_path in file_mappings.items():
-                local_path = local_config_path / local_file
-                
-                if not local_path.exists():
-                    print(f"  Warning: {local_file} not found, skipping...")
-                    continue
-                
-                print(f"  Deploying {local_file} -> {remote_path}...")
-                
-                # Copy to temp location in user's home directory (flatten path so no subdirs needed)
-                temp_path = f"{temp_dir}/{local_file.replace('/', '_')}"
-                try:
-                    scp.put(str(local_path), temp_path)
-                except Exception as e:
-                    print(f"    ✗ SCP failed for {local_file}: {e}")
-                    openhab_failed_count += 1
-                    continue
-                
-                # Copy to final location and try to set permissions
-                # chmod may fail for files owned by openhab (e.g., in jsondb), but that's OK
-                # since those files are already group-writable
-                copy_cmd = f"cp {temp_path} {remote_path} && (chmod 644 {remote_path} 2>/dev/null || true) && rm {temp_path}"
-                exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
-                
-                if exit_status == 0:
-                    print(f"    ✓ Successfully deployed {local_file}")
-                    deployed_count += 1
-                    
-                    # Verify file exists and check permissions
-                    exit_status, stdout_text2, stderr_text2 = execute_ssh_command(ssh, f"ls -la {remote_path} 2>&1")
-                    file_info = stdout_text2.strip()
-                    
-                    # Check if OpenHAB user can read the file
-                    exit_status, stdout_text3, stderr_text3 = execute_ssh_command(ssh, f"sudo -u openhab test -r {remote_path} && echo 'READABLE' || echo 'NOT_READABLE'")
-                    readable_check = stdout_text3.strip()
-                else:
+            try:
+                temp_dir = f"{home_dir}/.openhab-deploy-tmp"
+                exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, f"mkdir -p {temp_dir}")
+                if exit_status != 0:
                     error = stderr_text
-                    print(f"    ✗ Failed to deploy {local_file}: {error}")
-                    openhab_failed_count += 1
-            
-            # Deploy widget files
-            print("\nDeploying widget files...")
-            for local_file, remote_path in widget_mappings.items():
-                local_path = local_config_path / local_file
-                
-                if not local_path.exists():
-                    print(f"  Warning: {local_file} not found, skipping...")
-                    continue
-                
-                print(f"  Deploying {local_file} -> {remote_path}...")
-                
-                # Copy to temp location in user's home directory
-                temp_path = f"{temp_dir}/{local_file.replace('/', '_')}"
-                try:
-                    scp.put(str(local_path), temp_path)
-                except Exception as e:
-                    print(f"    ✗ SCP failed for {local_file}: {e}")
-                    openhab_failed_count += 1
-                    continue
-                
-                # Copy to final location and try to set permissions
-                # chmod may fail for files owned by openhab, but that's OK
-                # since those files are already group-writable
-                copy_cmd = f"cp {temp_path} {remote_path} && (chmod 644 {remote_path} 2>/dev/null || true) && rm {temp_path}"
-                exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
-                
-                if exit_status == 0:
-                    print(f"    ✓ Successfully deployed {local_file}")
-                    deployed_count += 1
-                    
-                    # Verify file exists and check permissions
-                    exit_status, stdout_text2, stderr_text2 = execute_ssh_command(ssh, f"ls -la {remote_path} 2>&1")
-                    file_info = stdout_text2.strip()
-                    
-                    # Check if OpenHAB user can read the file
-                    exit_status, stdout_text3, stderr_text3 = execute_ssh_command(ssh, f"sudo -u openhab test -r {remote_path} && echo 'READABLE' || echo 'NOT_READABLE'")
-                    readable_check = stdout_text3.strip()
-                else:
-                    error = stderr_text
-                    print(f"    ✗ Failed to deploy {local_file}: {error}")
-                    openhab_failed_count += 1
-            
-            scp.close()
+                    print(f"  Warning: Failed to create temp directory {temp_dir}: {error}")
+
+                for local_file, remote_path in file_mappings.items():
+                    local_path = local_config_path / local_file
+
+                    if not local_path.exists():
+                        print(f"  Warning: {local_file} not found, skipping...")
+                        continue
+
+                    print(f"  Deploying {local_file} -> {remote_path}...")
+
+                    # Copy to temp location in user's home directory (flatten path so no subdirs needed)
+                    temp_path = f"{temp_dir}/{local_file.replace('/', '_')}"
+                    try:
+                        scp.put(str(local_path), temp_path)
+                    except Exception as e:
+                        print(f"    ✗ SCP failed for {local_file}: {e}")
+                        openhab_failed_count += 1
+                        continue
+
+                    # Copy to final location and try to set permissions
+                    # chmod may fail for files owned by openhab (e.g., in jsondb), but that's OK
+                    # since those files are already group-writable
+                    copy_cmd = f"cp {temp_path} {remote_path} && (chmod 644 {remote_path} 2>/dev/null || true) && rm {temp_path}"
+                    exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
+
+                    if exit_status == 0:
+                        print(f"    ✓ Successfully deployed {local_file}")
+                        deployed_count += 1
+
+                        # Verify file exists and check permissions
+                        exit_status, stdout_text2, stderr_text2 = execute_ssh_command(ssh, f"ls -la {remote_path} 2>&1")
+                        file_info = stdout_text2.strip()
+
+                        # Check if OpenHAB user can read the file
+                        exit_status, stdout_text3, stderr_text3 = execute_ssh_command(ssh, f"sudo -u openhab test -r {remote_path} && echo 'READABLE' || echo 'NOT_READABLE'")
+                        readable_check = stdout_text3.strip()
+                    else:
+                        error = stderr_text
+                        print(f"    ✗ Failed to deploy {local_file}: {error}")
+                        openhab_failed_count += 1
+
+                # Deploy widget files
+                print("\nDeploying widget files...")
+                for local_file, remote_path in widget_mappings.items():
+                    local_path = local_config_path / local_file
+
+                    if not local_path.exists():
+                        print(f"  Warning: {local_file} not found, skipping...")
+                        continue
+
+                    print(f"  Deploying {local_file} -> {remote_path}...")
+
+                    # Copy to temp location in user's home directory
+                    temp_path = f"{temp_dir}/{local_file.replace('/', '_')}"
+                    try:
+                        scp.put(str(local_path), temp_path)
+                    except Exception as e:
+                        print(f"    ✗ SCP failed for {local_file}: {e}")
+                        openhab_failed_count += 1
+                        continue
+
+                    # Copy to final location and try to set permissions
+                    # chmod may fail for files owned by openhab, but that's OK
+                    # since those files are already group-writable
+                    copy_cmd = f"cp {temp_path} {remote_path} && (chmod 644 {remote_path} 2>/dev/null || true) && rm {temp_path}"
+                    exit_status, stdout_text, stderr_text = execute_ssh_command(ssh, copy_cmd)
+
+                    if exit_status == 0:
+                        print(f"    ✓ Successfully deployed {local_file}")
+                        deployed_count += 1
+
+                        # Verify file exists and check permissions
+                        exit_status, stdout_text2, stderr_text2 = execute_ssh_command(ssh, f"ls -la {remote_path} 2>&1")
+                        file_info = stdout_text2.strip()
+
+                        # Check if OpenHAB user can read the file
+                        exit_status, stdout_text3, stderr_text3 = execute_ssh_command(ssh, f"sudo -u openhab test -r {remote_path} && echo 'READABLE' || echo 'NOT_READABLE'")
+                        readable_check = stdout_text3.strip()
+                    else:
+                        error = stderr_text
+                        print(f"    ✗ Failed to deploy {local_file}: {error}")
+                        openhab_failed_count += 1
+            finally:
+                scp.close()
         
         # Restart OpenHAB service (passwordless sudo via sudoers configuration)
         if deploy_openhab_config and restart_service and deployed_count > 0:
