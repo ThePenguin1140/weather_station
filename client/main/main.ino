@@ -71,6 +71,13 @@ ISR(WDT_vect) {
 #define WIND_SPEED_KOR 80.0            // Calibration factor for km/h
 #define WIND_SPEED_VIN_REF 5.0         // Reference voltage (5V for Arduino Nano)
 
+// Voltage Monitor Hardware Constants (battery monitor on A0)
+// Voltage divider: battery → R_upper → A0 → R_lower → GND
+#define VOLTAGE_R_UPPER 33000.0        // 33K upper resistor
+#define VOLTAGE_R_LOWER 10000.0        // 10K lower resistor (to GND)
+// Scale factor: V_battery = V_pin * (R_upper + R_lower) / R_lower
+#define VOLTAGE_SCALE ((VOLTAGE_R_UPPER + VOLTAGE_R_LOWER) / VOLTAGE_R_LOWER)  // 4.3
+
 // Radio Configuration
 const byte address[6] = "00001";  // Pipe address for communication
 
@@ -273,8 +280,10 @@ SensorData readSensors() {
     DEBUG_PRINTLN(F("Warning: AS5600 read failed"));
   }
 
-  // Read Voltage (A0) - convert ADC reading to millivolts (0-5000 mV)
-  data.voltage = (uint16_t)((analogRead(VOLTAGE_PIN) * 5000UL) / 1024);
+  // Read Voltage (A0) - battery monitor via voltage divider (R_upper=33K, R_lower=10K)
+  // Scale pin voltage back to actual battery voltage, store as millivolts
+  float vpin = (analogRead(VOLTAGE_PIN) * 5.0f) / 1023.0f;
+  data.voltage = (uint16_t)(vpin * VOLTAGE_SCALE * 1000.0f);
 
   // Read Light Level (A1) - raw ADC value (0-1023)
   data.light = (uint16_t)analogRead(LIGHT_PIN);
