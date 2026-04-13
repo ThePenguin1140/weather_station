@@ -168,12 +168,15 @@ void setup() {
     DEBUG_PRINTLN(F("BME280 initialized successfully"));
     bmeInitialized = true;
     // Configure BME280 for weather monitoring
-    bme.setSampling(Adafruit_BME280::MODE_NORMAL,      // Operating Mode
+    // MODE_FORCED: sensor takes one measurement then returns to sleep,
+    // saving ~633 µA vs MODE_NORMAL which samples continuously at 500ms intervals.
+    // Call bme.takeForcedMeasurement() before each read in readSensors().
+    bme.setSampling(Adafruit_BME280::MODE_FORCED,      // Operating Mode
                     Adafruit_BME280::SAMPLING_X2,      // Temperature oversampling
                     Adafruit_BME280::SAMPLING_X16,     // Pressure oversampling
                     Adafruit_BME280::SAMPLING_X1,      // Humidity oversampling
                     Adafruit_BME280::FILTER_X16,       // Filtering
-                    Adafruit_BME280::STANDBY_MS_500);  // Standby time
+                    Adafruit_BME280::STANDBY_MS_500);  // Standby time (unused in FORCED mode)
   }
 
   delay(ONE_SECOND);
@@ -233,6 +236,7 @@ SensorData readSensors() {
 
   // Read BME280 sensor
   if (bmeInitialized) {
+    bme.takeForcedMeasurement();  // Trigger one measurement; sensor sleeps again after
     data.temperature = (int32_t)round(
       bme.readTemperature() * 100);
 
