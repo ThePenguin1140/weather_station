@@ -191,6 +191,9 @@ void setup() {
   } else {
     DEBUG_PRINTLN(F("AS5600 initialized successfully"));
     as5600Initialized = true;
+    // Set LPM3: 100ms polling, 1.5mA vs 6.5mA in normal mode.
+    // 100ms update rate is more than sufficient for wind direction at 5-min intervals.
+    as5600.setPowerMode(AS5600_POWER_MODE_LPM3);
     // Check if magnet is detected
     if (!as5600.isMagnetDetected()) {
       DEBUG_PRINTLN(F("Warning: AS5600 magnet not detected!"));
