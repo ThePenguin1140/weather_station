@@ -10,6 +10,7 @@ import json
 import logging
 import sys
 import struct
+from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, Any
 import requests
 
@@ -21,7 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('weather_station.log'),
+        RotatingFileHandler('weather_station.log', maxBytes=10_000_000, backupCount=5),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -64,7 +65,14 @@ class WeatherStationReceiver:
         
         # Wind direction offset in degrees (for calibration)
         self.wind_direction_offset = config.get('wind_direction_offset', 0)
-        
+
+        # OpenHAB API token for Bearer authentication
+        self.openhab_api_token = config.get('openhab_api_token', '')
+        # Persistent HTTP session for connection pooling to OpenHAB
+        self._session = requests.Session()
+        if self.openhab_api_token:
+            self._session.headers['Authorization'] = f'Bearer {self.openhab_api_token}'
+
         # Initialize radio
         if not self.radio.begin():
             raise RuntimeError("NRF24L01 hardware not responding!")
@@ -177,12 +185,6 @@ class WeatherStationReceiver:
                     f"Unusual pressure value: {pressure_pa}Pa (expected 80000-110000 Pa)"
                 )
             
-            # Wind direction should be 0-360 degrees (3 digits max)
-            if wind_direction_deg < 0 or wind_direction_deg > 360:
-                logger.warning(
-                    f"Unusual wind direction value: {wind_direction_deg}° (expected 0-360°)"
-                )
-
             data: Dict[str, Any] = {
                 "temp": float(temperature),
                 "pressure": float(pressure_pa),
@@ -199,17 +201,9 @@ class WeatherStationReceiver:
             return None
     
     def calculate_pressure_hpa(self, pressure_pa: float) -> float:
-        """
-        Convert pressure from Pascals to hectopascals (hPa)
-        
-        Args:
-            pressure_pa: Pressure in Pascals
-            
-        Returns:
-            Pressure in hectopascals (hPa)
-        """
+        """Convert pressure from Pascals to hectopascals (hPa)"""
         return pressure_pa / 100.0
-    
+
     def calculate_altitude(self, pressure_hpa: float, sea_level_hpa: float = 1013.25) -> float:
         """
         Calculate altitude from pressure using the barometric formula
@@ -223,26 +217,6 @@ class WeatherStationReceiver:
         """
         # Barometric formula: h = 44330 * (1 - (P/P0)^(1/5.255))
         return 44330.0 * (1.0 - pow(pressure_hpa / sea_level_hpa, 1.0 / 5.255))
-    
-    def calculate_wind_direction_deg(self, raw_angle: int) -> float:
-        """
-        Convert raw AS5600 angle to degrees
-        
-        NOTE: This function is kept for backwards compatibility, but the Arduino
-        now sends wind direction already in degrees (0-360), so no conversion is needed.
-        
-        Args:
-            raw_angle: Raw angle value (0-4095) or degrees (0-360) if already converted
-            
-        Returns:
-            Wind direction in degrees (0-360)
-        """
-        # Arduino now sends degrees directly, so just return as float
-        # If raw angle (0-4095) is passed, convert it
-        if raw_angle > 360:
-            return (raw_angle / 4096.0) * 360.0
-        else:
-            return float(raw_angle)
     
     def process_sensor_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -309,10 +283,10 @@ class WeatherStationReceiver:
                 url = f"{self.openhab_url}/rest/items/{item_name}/state"
                 try:
                     value_str = str(value)
-                    response = requests.put(
-                        url, 
-                        data=value_str, 
-                        headers={'Content-Type': 'text/plain'}, 
+                    response = self._session.put(
+                        url,
+                        data=value_str,
+                        headers={'Content-Type': 'text/plain'},
                         timeout=5
                     )
                     if response.ok:  # Accepts any 2xx status code (200, 202, etc.)
@@ -365,6 +339,8 @@ class WeatherStationReceiver:
         finally:
             self.radio.powerDown()
             logger.info("Radio powered down")
+            self._session.close()
+            logger.info("HTTP session closed")
 
 
 def load_config(config_path: str = 'config.json') -> Dict[str, Any]:
@@ -385,7 +361,7 @@ def load_config(config_path: str = 'config.json') -> Dict[str, Any]:
         return {}
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in config file: {e}")
-        return {}
+        raise
 
 
 def main():
