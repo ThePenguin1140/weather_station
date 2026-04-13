@@ -53,6 +53,7 @@
 // Transmission Configuration
 #define SLEEP_CYCLES 38  // 38 × 8s ≈ 304s (~5 min)
 #define MAX_RETRIES 3
+#define ONE_SECOND 1000  // milliseconds
 
 volatile uint8_t wdt_count = 0;
 
@@ -96,7 +97,7 @@ void setup() {
   // Calculate frequency based on prescaler
   // Prescaler divides by 2^(CLKPS value)
   unsigned long baseFreq = F_CPU;  // Use compile-time F_CPU constant
-  unsigned long divider = 1UL << clkpr;  // 2^clkpr
+  unsigned long divider = 1UL << (CLKPR & 0x0F);  // 2^CLKPS bits
   unsigned long actualFreq = baseFreq / divider;
   
   DEBUG_PRINT(F("Base CPU frequency (F_CPU): "));
@@ -143,7 +144,7 @@ void setup() {
   radio.setPALevel(RF24_PA_LOW);    // Set power amplifier level (LOW for better reliability)
   radio.setDataRate(RF24_250KBPS);  // Set data rate (slower = more reliable)
   radio.setChannel(76);             // Set RF channel (must match receiver!)
-  radio.setRetries(30, 5);          // Disable auto-retry and ACK (fire and forget)
+  radio.setRetries(30, 5);          // Retry up to 5 times with 7.5ms (30×250µs) between attempts
   radio.stopListening();            // Set as transmitter
 
   DEBUG_PRINTLN(F("NRF24L01 initialized successfully"));
@@ -274,6 +275,8 @@ SensorData readSensors() {
   // Read Wind Speed (analog sensor)
   // Apply calibration offset to raw analog reading
   int rawReading = analogRead(WIND_SPEED_PIN);
+  // NOTE: A negative WIND_SPEED_RAW_OFFSET will be clipped to 0 for low-wind readings
+  // due to the constrain() below — inherent limit of offset-before-clamp ordering.
   int calibratedRaw = rawReading + WIND_SPEED_RAW_OFFSET;
   // Constrain to valid analog range
   calibratedRaw = constrain(calibratedRaw, 0, 1023);
