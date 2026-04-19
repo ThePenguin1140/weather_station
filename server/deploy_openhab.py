@@ -9,7 +9,9 @@ using SSH/SCP based on the configuration in .ssh/ssh_config.
 
 import os
 import sys
+import json
 import argparse
+import tempfile
 from pathlib import Path
 import paramiko
 from scp import SCPClient
@@ -360,6 +362,78 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
         return deps_ok
 
 
+def deploy_grafana(ssh, influxdb_token, project_root, home_dir, dry_run=False, restart_service=True):
+    """Deploy Grafana provisioning files and dashboard JSON to the server."""
+    grafana_dir = project_root / "server" / "config" / "grafana"
+
+    # (local_path, remote_path, needs_token_substitution)
+    files = [
+        (grafana_dir / "provisioning/datasources/influxdb.yaml",
+         "/etc/grafana/provisioning/datasources/influxdb.yaml", True),
+        (grafana_dir / "provisioning/dashboards/provider.yaml",
+         "/etc/grafana/provisioning/dashboards/provider.yaml", False),
+        (grafana_dir / "dashboards/weather_station.json",
+         "/etc/grafana/dashboards/weather_station.json", False),
+    ]
+
+    if dry_run:
+        print("\nWould deploy Grafana config files:")
+        for local_path, remote_path, _ in files:
+            status = "" if local_path.exists() else " (FILE NOT FOUND)"
+            print(f"  {local_path} -> {remote_path}{status}")
+        print("Would restart grafana-server")
+        return True
+
+    # Ensure remote directories exist (grafana group must have write access — see SETUP_DEPLOY_USER.md)
+    for dir_path in ["/etc/grafana/provisioning/datasources",
+                     "/etc/grafana/provisioning/dashboards",
+                     "/etc/grafana/dashboards"]:
+        execute_ssh_command(ssh, f"mkdir -p {dir_path} 2>/dev/null || true")
+
+    deployed_count = 0
+    temp_dir = f"{home_dir}/.openhab-deploy-tmp"
+    print("\nDeploying Grafana config files...")
+    scp = SCPClient(ssh.get_transport())
+    try:
+        for local_path, remote_path, needs_token in files:
+            if not local_path.exists():
+                print(f"  Warning: {local_path.name} not found, skipping...")
+                continue
+
+            content = local_path.read_text()
+            if needs_token:
+                content = content.replace("PLACEHOLDER_REPLACE_WITH_TOKEN", influxdb_token)
+
+            with tempfile.NamedTemporaryFile(mode='w', suffix=local_path.suffix, delete=False) as tf:
+                tf.write(content)
+                tf_path = tf.name
+
+            try:
+                temp_remote = f"{temp_dir}/{local_path.name}"
+                scp.put(tf_path, temp_remote)
+                copy_cmd = f"cp {temp_remote} {remote_path} && chmod 644 {remote_path} && rm {temp_remote}"
+                exit_status, _, stderr_text = execute_ssh_command(ssh, copy_cmd)
+                if exit_status == 0:
+                    print(f"  ✓ {local_path.name} -> {remote_path}")
+                    deployed_count += 1
+                else:
+                    print(f"  ✗ Failed to deploy {local_path.name}: {stderr_text}")
+            finally:
+                os.unlink(tf_path)
+    finally:
+        scp.close()
+
+    if restart_service and deployed_count > 0:
+        print("\nRestarting Grafana service...")
+        exit_status, _, stderr_text = execute_ssh_command(ssh, "sudo systemctl restart grafana-server")
+        if exit_status == 0:
+            print("  ✓ grafana-server restarted")
+        else:
+            print(f"  ✗ Failed to restart grafana-server: {stderr_text}")
+
+    return True
+
+
 def deploy_files(
     ssh_config_path,
     local_config_dir,
@@ -373,18 +447,19 @@ def deploy_files(
     deploy_openhab_config=True,
         deploy_receiver_config=False,
         deploy_openhabian_conf=False,
+        deploy_grafana_config=True,
     ):
     """
     Deploy OpenHAB configuration files and receiver application to the server.
-    
+
     This function uses a dedicated deployment user (openhab-deploy) that has:
     - Group write permissions to OpenHAB config directories
     - Passwordless sudo access for restarting the OpenHAB and weather-station services
-    
+
     The receiver deployment assumes the weather-station systemd service already
     exists on the server. It deploys receiver.py and config.json, then restarts
     the service. The service must be created once as root per SETUP_DEPLOY_USER.md.
-    
+
     Args:
         ssh_config_path: Path to SSH config file
         local_config_dir: Local directory containing config files
@@ -401,6 +476,8 @@ def deploy_files(
             receiver.py (off by default)
         deploy_openhabian_conf: Whether to deploy openhabian.conf to the remote host
             (off by default)
+        deploy_grafana_config: Whether to deploy Grafana provisioning files and
+            dashboard JSON (default: True)
     """
     # Parse SSH config
     ssh_config = parse_ssh_config(ssh_config_path, host=host)
@@ -421,7 +498,15 @@ def deploy_files(
     if not keyfile_path.exists():
         print(f"Error: SSH key file not found: {keyfile_path}")
         sys.exit(1)
-    
+
+    # Load InfluxDB token from config.json (same file used by receiver)
+    config_json_path = project_root / "server" / "src" / "config.json"
+    influxdb_token = "PLACEHOLDER_REPLACE_WITH_TOKEN"
+    if config_json_path.exists():
+        with open(config_json_path) as f:
+            app_config = json.load(f)
+        influxdb_token = app_config.get("influxdb_token", influxdb_token)
+
     # File mapping: local_file -> remote_path (will be updated after detecting actual config dir)
     # Note: uicomponents_ui_page.json goes to jsondb in userdata (typically /var/lib/openhab/jsondb/)
     # This will be updated after detecting the actual userdata directory
@@ -429,10 +514,10 @@ def deploy_files(
         'weather_station.items': f'{remote_base_dir}/items/weather_station.items',
         'weather_station.sitemap': f'{remote_base_dir}/sitemaps/weather_station.sitemap',
         'weather_station.rules': f'{remote_base_dir}/rules/weather_station.rules',
-        'rrd4j.persist': f'{remote_base_dir}/persistence/rrd4j.persist',
-        'services/rrd4j.cfg': f'{remote_base_dir}/services/rrd4j.cfg',
         'jdbc.persist': f'{remote_base_dir}/persistence/jdbc.persist',
         'jdbc.cfg': f'{remote_base_dir}/services/jdbc.cfg',
+        'influxdb.persist': f'{remote_base_dir}/persistence/influxdb.persist',
+        'influxdb.cfg': f'{remote_base_dir}/services/influxdb.cfg',
         'uicomponents_ui_page.json': '/var/lib/openhab/jsondb/uicomponents_ui_page.json',  # Will be updated with actual userdata path
     }
     deployed_count = 0
@@ -523,6 +608,8 @@ def deploy_files(
                 )
         if restart_service and deploy_openhab_config:
             print("\nWould restart OpenHAB service")
+        if deploy_grafana_config:
+            deploy_grafana(None, influxdb_token, project_root, None, dry_run=True, restart_service=restart_service)
         return True
 
     # Connect to server
@@ -594,9 +681,10 @@ def deploy_files(
             'weather_station.items': f'{actual_config_base}/items/weather_station.items',
             'weather_station.sitemap': f'{actual_config_base}/sitemaps/weather_station.sitemap',
             'weather_station.rules': f'{actual_config_base}/rules/weather_station.rules',
-            'rrd4j.persist': f'{actual_config_base}/persistence/rrd4j.persist',
             'jdbc.persist': f'{actual_config_base}/persistence/jdbc.persist',
             'jdbc.cfg': f'{actual_config_base}/services/jdbc.cfg',
+            'influxdb.persist': f'{actual_config_base}/persistence/influxdb.persist',
+            'influxdb.cfg': f'{actual_config_base}/services/influxdb.cfg',
             'uicomponents_ui_page.json': f'{actual_userdata_base}/jsondb/uicomponents_ui_page.json',
         }
         
@@ -650,14 +738,32 @@ def deploy_files(
 
                     print(f"  Deploying {local_file} -> {remote_path}...")
 
+                    # For influxdb.cfg, substitute the token placeholder before uploading
+                    upload_path = str(local_path)
+                    tmp_substitute = None
+                    if local_file == 'influxdb.cfg' and influxdb_token != "PLACEHOLDER_REPLACE_WITH_TOKEN":
+                        content = local_path.read_text().replace(
+                            "PLACEHOLDER_REPLACE_WITH_TOKEN", influxdb_token
+                        )
+                        with tempfile.NamedTemporaryFile(mode='w', suffix='.cfg', delete=False) as tf:
+                            tf.write(content)
+                            tmp_substitute = tf.name
+                        upload_path = tmp_substitute
+
                     # Copy to temp location in user's home directory (flatten path so no subdirs needed)
                     temp_path = f"{temp_dir}/{local_file.replace('/', '_')}"
                     try:
-                        scp.put(str(local_path), temp_path)
+                        scp.put(upload_path, temp_path)
                     except Exception as e:
                         print(f"    ✗ SCP failed for {local_file}: {e}")
                         openhab_failed_count += 1
+                        if tmp_substitute:
+                            os.unlink(tmp_substitute)
                         continue
+                    finally:
+                        if tmp_substitute and os.path.exists(tmp_substitute):
+                            os.unlink(tmp_substitute)
+                            tmp_substitute = None
 
                     # Copy to final location and try to set permissions
                     # chmod may fail for files owned by openhab (e.g., in jsondb), but that's OK
@@ -869,6 +975,10 @@ def deploy_files(
                 restart_service=restart_service,
             )
 
+        if deploy_grafana_config:
+            deploy_grafana(ssh, influxdb_token, project_root, home_dir,
+                           dry_run=False, restart_service=restart_service)
+
         openhab_has_failures = deploy_openhab_config and (
             openhab_failed_count > 0
             or (deploy_openhabian_conf and openhabian_conf_failed)
@@ -1025,6 +1135,11 @@ weather-station service once as root in Step 7).
         dest='openhab_config',
         help='Deploy openhabian.conf to the remote host (off by default)'
     )
+    parser.add_argument(
+        '--skip-grafana',
+        action='store_true',
+        help='Skip Grafana provisioning file and dashboard deployment'
+    )
     
     args = parser.parse_args()
     
@@ -1049,6 +1164,7 @@ weather-station service once as root in Step 7).
         deploy_openhab_config=not args.skip_openhab,
         deploy_receiver_config=args.receiver_config,
         deploy_openhabian_conf=args.openhab_config,
+        deploy_grafana_config=not args.skip_grafana,
     )
     sys.exit(0 if result else 1)
 

@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    type: influxdb
+    uid: influxdb-weatherstation
+    url: http://localhost:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: openhab
+      defaultBucket: weatherstation
+      tlsSkipVerify: true
+    secureJsonData:
+      token: PLACEHOLDER_REPLACE_WITH_TOKEN
+    editable: false

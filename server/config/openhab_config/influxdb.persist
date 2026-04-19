@@ -1,0 +1,16 @@
+// InfluxDB 2 Persistence Configuration for Weather Station
+// Deployed by deploy_openhab.py to /etc/openhab/persistence/influxdb.persist
+//
+// Replaces rrd4j.persist — InfluxDB handles Number:Temperature and other UoM
+// item types correctly, and supports real historical queries and Grafana charts.
+
+Strategies {
+    everyHour : "0 0 * * * ?"
+    everyDay  : "0 0 0 * * ?"
+
+    default = everyChange
+}
+
+Items {
+    WeatherStation_* : strategy = everyChange, everyHour
+}

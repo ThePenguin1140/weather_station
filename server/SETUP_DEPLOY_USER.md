@@ -168,6 +168,8 @@ openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart openhab
 openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl is-active openhab
 openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl status openhab
 openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart weather-station
+openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart grafana-server
+openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl is-active grafana-server
 EOF
 sudo chmod 440 /etc/sudoers.d/openhab-deploy
 ```
@@ -186,6 +188,36 @@ You can verify the syntax is correct with:
 ```bash
 sudo visudo -c
 ```
+
+## Step 6b: Configure Grafana Directory Permissions (Required for Grafana Deployment)
+
+The deploy script writes Grafana provisioning files directly (no sudo for file writes). Give the deploy user access to the Grafana config directories:
+
+```bash
+# Add deploy user to the grafana group
+sudo usermod -a -G grafana openhab-deploy
+
+# Make Grafana provisioning dirs group-writable
+sudo chown -R root:grafana /etc/grafana/provisioning
+sudo chmod -R g+w /etc/grafana/provisioning
+
+# Create and permission the dashboards directory
+sudo mkdir -p /etc/grafana/dashboards
+sudo chown root:grafana /etc/grafana/dashboards
+sudo chmod g+w /etc/grafana/dashboards
+```
+
+**Note**: Log out and back in (or start a new SSH session) after adding the user to the grafana group for the group membership to take effect.
+
+## Step 6c: Set InfluxDB Token in config.json
+
+After installing InfluxDB via `sudo openhabian-config` → option 52 and creating your bucket:
+
+1. Open InfluxDB UI at `http://weatherstation:8086`
+2. Go to **Data → API Tokens → Generate All Access Token** → copy it
+3. Edit `server/src/config.json` locally and replace `PLACEHOLDER_REPLACE_WITH_TOKEN` with the real token in the `influxdb_token` field
+
+The deploy script reads this token and substitutes it into `influxdb.cfg` (for OpenHAB) and `influxdb.yaml` (for Grafana datasource) at deploy time. The placeholder is never written to the server.
 
 ## Step 7: Create the Weather Station Receiver Service (Required for Receiver Deployment)
 
@@ -518,7 +550,7 @@ If the deployment script fails with an error like "Unit weather-station.service 
 - Consider using a passphrase-protected SSH key for additional security
 - Regularly rotate SSH keys as part of your security practices
 - The sudoers rules are limited to:
-  - Restarting the OpenHAB and weather-station services
+  - Restarting the OpenHAB, weather-station, and grafana-server services
   - Checking service status (is-active, status)
   - These commands do not allow arbitrary system commands or file access
 
