@@ -20,7 +20,14 @@
       "Bash(python3:*)",
       "Bash(git -C /mnt/f/Projects/weather_station log --oneline)",
       "WebSearch",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(curl -s -H 'Authorization: Bearer __TRACKED_VAR__' __TRACKED_VAR__/rest/persistence)",
+      "Bash(cp /mnt/f/Projects/weather_station/.ssh/openhab_key /tmp/openhab_key)",
+      "Bash(chmod 600 /tmp/openhab_key)",
+      "Skill(commit-commands:commit-push-pr)",
+      "Bash(/mnt/c/Python313/python.exe -m venv --help)",
+      "Bash(/mnt/f/Projects/weather_station/venv/Scripts/python.exe server/deploy_openhab.py --help)",
+      "Bash(/mnt/f/Projects/weather_station/venv/Scripts/python.exe:*)"
     ]
   }
 }
