@@ -5,6 +5,7 @@ Raspberry Pi receiver for NRF24L01 weather station data
 Forwards sensor data to OpenHAB via REST API
 """
 
+import math
 import time
 import json
 import logging
@@ -224,7 +225,14 @@ class WeatherStationReceiver:
         
         # Wind speed is already calculated on Arduino side
         # No additional processing needed
-        
+
+        # Absolute humidity via August-Roche-Magnus approximation [g/m³]
+        if 'temp' in raw_data and 'humidity' in raw_data and raw_data['humidity'] != -999.0:
+            t = raw_data['temp']
+            rh = raw_data['humidity']
+            es = 6.1078 * math.exp(17.27 * t / (t + 237.3))
+            processed_data['absolute_humidity'] = round(216.7 * (rh / 100.0 * es) / (273.15 + t), 2)
+
         logger.debug(f"Processed data: {processed_data}")
         return processed_data
     

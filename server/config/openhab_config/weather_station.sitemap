@@ -20,6 +20,9 @@ sitemap weather_station label="Weather Station Dashboard" {
         
         // Humidity - Large display
         Text item=WeatherStation_Humidity icon="humidity"
+
+        // Absolute Humidity - derived from temp + RH
+        Text item=WeatherStation_AbsoluteHumidity icon="humidity"
         
         // Pressure - Large display
         Text item=WeatherStation_Pressure icon="pressure"
@@ -57,6 +60,15 @@ sitemap weather_station label="Weather Station Dashboard" {
         Chart item=WeatherStation_Humidity period=W refresh=3600
     }
     
+    // ============================================
+    // HISTORICAL CHARTS - Absolute Humidity
+    // ============================================
+    Frame label="Absolute Humidity Trends" icon="chart" {
+        Chart item=WeatherStation_AbsoluteHumidity period=h refresh=300
+        Chart item=WeatherStation_AbsoluteHumidity period=D refresh=3600
+        Chart item=WeatherStation_AbsoluteHumidity period=W refresh=3600
+    }
+
     // ============================================
     // HISTORICAL CHARTS - Pressure
     // ============================================

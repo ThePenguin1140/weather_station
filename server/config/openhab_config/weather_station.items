@@ -18,6 +18,9 @@ Number:Pressure WeatherStation_Pressure "Pressure [%.1f hPa]" <pressure> (Weathe
 // Humidity from BME280 sensor
 Number:Dimensionless WeatherStation_Humidity "Humidity [%.0f %%]" <humidity> (WeatherStation) {unit="%"}
 
+// Absolute humidity derived from temperature and relative humidity (Magnus formula)
+Number:Dimensionless WeatherStation_AbsoluteHumidity "Absolute Humidity [%.2f g/m³]" <humidity> (WeatherStation) {unit="g/m³"}
+
 // Wind Direction from AS5600 sensor
 Number:Angle WeatherStation_WindDirection "Wind Direction [%.0f °]" <wind> (WeatherStation)
 
