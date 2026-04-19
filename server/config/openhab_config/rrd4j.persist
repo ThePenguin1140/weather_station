@@ -30,7 +30,6 @@ Items {
     // Persist all weather station items
     WeatherStation_Temperature : strategy = everyChange, everyMinute, everyHour, everyDay
     WeatherStation_Pressure : strategy = everyChange, everyMinute, everyHour, everyDay
-    WeatherStation_Altitude : strategy = everyChange, everyMinute, everyHour, everyDay
     WeatherStation_Humidity : strategy = everyChange, everyMinute, everyHour, everyDay
     WeatherStation_WindDirection : strategy = everyChange, everyMinute, everyHour, everyDay
     WeatherStation_WindSpeed : strategy = everyChange, everyMinute, everyHour, everyDay

@@ -23,9 +23,6 @@ sitemap weather_station label="Weather Station Dashboard" {
         
         // Pressure - Large display
         Text item=WeatherStation_Pressure icon="pressure"
-        
-        // Altitude
-        Text item=WeatherStation_Altitude icon="altitude"
     }
     
     // ============================================

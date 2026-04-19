@@ -6,7 +6,6 @@ rule "Weather Station Data Received"
 when
     Item WeatherStation_Temperature received update or
     Item WeatherStation_Pressure received update or
-    Item WeatherStation_Altitude received update or
     Item WeatherStation_Humidity received update or
     Item WeatherStation_WindDirection received update or
     Item WeatherStation_WindSpeed received update

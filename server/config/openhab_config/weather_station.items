@@ -15,9 +15,6 @@ Number:Temperature WeatherStation_Temperature "Temperature [%.1f °C]" <temperat
 // Pressure from BME280 sensor
 Number:Pressure WeatherStation_Pressure "Pressure [%.1f hPa]" <pressure> (WeatherStation)
 
-// Altitude calculated from pressure
-Number:Length WeatherStation_Altitude "Altitude [%.1f m]" <altitude> (WeatherStation)
-
 // Humidity from BME280 sensor
 Number:Dimensionless WeatherStation_Humidity "Humidity [%.0f %%]" <humidity> (WeatherStation) {unit="%"}
 

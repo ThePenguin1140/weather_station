@@ -14,7 +14,6 @@ Strategies {
 Items {
     WeatherStation_Temperature    : strategy = everyChange, everyHour
     WeatherStation_Pressure       : strategy = everyChange, everyHour
-    WeatherStation_Altitude       : strategy = everyChange, everyHour
     WeatherStation_Humidity       : strategy = everyChange, everyHour
     WeatherStation_WindDirection  : strategy = everyChange, everyHour
     WeatherStation_WindSpeed      : strategy = everyChange, everyHour

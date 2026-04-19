@@ -43,7 +43,6 @@ class WeatherStationReceiver:
                 - radio_channel: Radio channel (default: 76)
                 - openhab_url: OpenHAB REST API URL (default: http://localhost:8080)
                 - openhab_items: Dictionary mapping sensor names to OpenHAB item names
-                - sea_level_pressure: Sea level pressure in hPa for altitude calculation (default: 1013.25)
                 - wind_direction_offset: Offset in degrees to apply to wind direction (default: 0)
         """
         self.config = config
@@ -52,17 +51,13 @@ class WeatherStationReceiver:
         self.openhab_items = config.get('openhab_items', {
             'temp': 'WeatherStation_Temperature',
             'pressure': 'WeatherStation_Pressure',
-            'altitude': 'WeatherStation_Altitude',
             'humidity': 'WeatherStation_Humidity',
             'wind_direction_deg': 'WeatherStation_WindDirection',
             'wind_speed': 'WeatherStation_WindSpeed',
             'voltage': 'WeatherStation_Voltage',
             'light': 'WeatherStation_Light',
         })
-        
-        # Sea level pressure for altitude calculation
-        self.sea_level_pressure = config.get('sea_level_pressure', 1013.25)
-        
+
         # Wind direction offset in degrees (for calibration)
         self.wind_direction_offset = config.get('wind_direction_offset', 0)
 
@@ -204,20 +199,6 @@ class WeatherStationReceiver:
         """Convert pressure from Pascals to hectopascals (hPa)"""
         return pressure_pa / 100.0
 
-    def calculate_altitude(self, pressure_hpa: float, sea_level_hpa: float = 1013.25) -> float:
-        """
-        Calculate altitude from pressure using the barometric formula
-        
-        Args:
-            pressure_hpa: Current pressure in hPa
-            sea_level_hpa: Sea level pressure in hPa (default: 1013.25)
-            
-        Returns:
-            Altitude in meters
-        """
-        # Barometric formula: h = 44330 * (1 - (P/P0)^(1/5.255))
-        return 44330.0 * (1.0 - pow(pressure_hpa / sea_level_hpa, 1.0 / 5.255))
-    
     def process_sensor_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process raw sensor data to calculate derived values
@@ -235,12 +216,6 @@ class WeatherStationReceiver:
         if 'pressure' in raw_data and raw_data['pressure'] != -999.0:
             pressure_hpa = self.calculate_pressure_hpa(raw_data['pressure'])
             processed_data['pressure_hpa'] = pressure_hpa
-            
-            # Calculate altitude from pressure
-            processed_data['altitude'] = self.calculate_altitude(
-                pressure_hpa, 
-                self.sea_level_pressure
-            )
         
         # Wind direction is already in degrees (0-360) from Arduino, no conversion needed
         # Just add it as wind_direction_deg for OpenHAB compatibility
