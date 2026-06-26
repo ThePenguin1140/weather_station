@@ -26,11 +26,26 @@ Number:Angle WeatherStation_WindDirection "Wind Direction [%.0f °]" <wind> (Wea
 // Wind Speed from anemometer
 Number:Speed WeatherStation_WindSpeed "Wind Speed [%.2f km/h]" <wind> (WeatherStation)
 
-// Voltage sensor on A0
-Number:ElectricPotential WeatherStation_Voltage "Voltage [%.3f V]" <energy> (WeatherStation)
+// Soil temperature from DS18B20 (1-Wire)
+Number:Temperature WeatherStation_SoilTemperature "Soil Temperature [%.1f °C]" <temperature> (WeatherStation)
 
-// Light sensor on A1
+// Soil moisture from capacitive sensor (raw ADC 0-1023)
+Number:Dimensionless WeatherStation_SoilMoisture "Soil Moisture [%.0f]" <humidity> (WeatherStation)
+
+// Light sensor (LDR) via ADS1115 ch0 - raw counts
 Number:Dimensionless WeatherStation_Light "Light Level [%.0f]" <light> (WeatherStation)
+
+// UV sensor (LM358 amplified) via ADS1115 ch1 - raw counts
+Number:Dimensionless WeatherStation_UV "UV Level [%.0f]" <sun> (WeatherStation)
+
+// Solar battery voltage via ADS1115 ch2
+Number:ElectricPotential WeatherStation_Voltage "Solar Battery Voltage [%.3f V]" <energy> (WeatherStation)
+
+// Load current via ADS1115 shunt (ch2-ch3 / R8)
+Number:ElectricCurrent WeatherStation_Current "Load Current [%.0f mA]" <energy> (WeatherStation) {unit="mA"}
+
+// Derived power draw (solar battery voltage × load current)
+Number:Power WeatherStation_Power "Power Draw [%.3f W]" <energy> (WeatherStation)
 
 
 

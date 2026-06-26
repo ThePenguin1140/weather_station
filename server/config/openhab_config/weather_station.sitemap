@@ -102,11 +102,28 @@ sitemap weather_station label="Weather Station Dashboard" {
     }
     
     // ============================================
+    // SOIL CONDITIONS
+    // ============================================
+    Frame label="Soil Conditions" icon="garden" {
+        Text item=WeatherStation_SoilTemperature icon="temperature"
+        Text item=WeatherStation_SoilMoisture icon="humidity"
+    }
+
+    // ============================================
+    // SOLAR POWER (Solar Battery Case)
+    // ============================================
+    Frame label="Solar Power" icon="solarplant" {
+        Text item=WeatherStation_Voltage icon="energy"
+        Text item=WeatherStation_Current icon="energy"
+        Text item=WeatherStation_Power icon="energy"
+    }
+
+    // ============================================
     // ADDITIONAL SENSORS
     // ============================================
     Frame label="Additional Sensors" icon="sensors" {
-        Text item=WeatherStation_Voltage icon="energy"
         Text item=WeatherStation_Light icon="light"
+        Text item=WeatherStation_UV icon="sun"
     }
 
     // ============================================

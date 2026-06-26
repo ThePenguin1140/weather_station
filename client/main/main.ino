@@ -1,7 +1,8 @@
 /*
  * Weather Station Sensor Transmitter
- * Arduino Nano with NRF24L01, BME280, AS5600, and Wind Speed Sensor
- * 
+ * Arduino Nano with NRF24L01, BME280, AS5600, DS18B20, ADS1115,
+ * wind-speed anemometer and soil-moisture sensor
+ *
  * Reads sensor data and transmits via NRF24L01 wireless module
  */
 
@@ -11,6 +12,9 @@
 #include <Wire.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_AS5600.h>
+#include <Adafruit_ADS1X15.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include "sensor_data.h"
@@ -22,15 +26,32 @@
 // Status LED
 #define LED_PIN 13
 
-// Analog Sensor Pins
+// Analog Sensor Pins (Arduino native ADC)
 #define WIND_SPEED_PIN A2
-#define VOLTAGE_PIN A0
-#define LIGHT_PIN A1
+// Soil moisture on a native analog pin. A0/A1 were freed when the battery
+// monitor and light sensor moved to the ADS1115 in the Solar Battery Case.
+// NOTE: confirm this pin against the Rev 3 board before deploying.
+#define SOIL_MOISTURE_PIN A0
+
+// DS18B20 soil temperature sensor on the 1-Wire bus (digital pin D2)
+#define ONE_WIRE_BUS 2
 
 // BME280 I2C Address (usually 0x76 or 0x77)
 #define BME280_ADDRESS 0x76
 
 #define AS5600_ADDRESS 0x36
+
+// ADS1115 4-channel ADC (Solar Battery Case), I2C address 0x49.
+// Channel assignment: ch0 = light (LDR), ch1 = UV, ch2 = solar battery (+),
+// ch3 = post-shunt node. Load current = (ch2 - ch3) / R8.
+#define ADS1115_ADDRESS 0x49
+#define ADS_CH_LIGHT 0
+#define ADS_CH_UV 1
+#define ADS_CH_BATTERY 2
+#define ADS_CH_SHUNT 3
+// Current-sense shunt R8 in the Solar Battery Case (ohms).
+// Ig = (V_ch2 - V_ch3) / R8  (see project current-draw calculation).
+#define CURRENT_SHUNT_R8 11.0
 
 // Debug flag: Set to false to disable clock prescaler for serial debugging
 // When ENABLE_POWER_SAVING is false, serial communication will work at 9600 baud
@@ -65,18 +86,14 @@ ISR(WDT_vect) {
 #define WIND_DIRECTION_OFFSET 0        // Raw angle offset for magnet alignment (0-4095 range)
 #define WIND_SPEED_RAW_OFFSET 0        // Analog reading offset for sensor zero point (0-1023 range)
 
-// Wind Speed Hardware Constants (adjust based on your circuit)
-#define WIND_SPEED_R1 10000.0          // 10K resistor in voltage divider
-#define WIND_SPEED_R2 61900.0          // Adjust based on your setup
+// Wind Speed Hardware Constants (Rev 3 schematic: R3/R4 divider on Gen output)
+#define WIND_SPEED_R1 10020.0          // R3: 10.02k resistor in voltage divider
+#define WIND_SPEED_R2 62000.0          // R4: 62.0k resistor in voltage divider
 #define WIND_SPEED_KOR 80.0            // Calibration factor for km/h
 #define WIND_SPEED_VIN_REF 5.0         // Reference voltage (5V for Arduino Nano)
 
-// Voltage Monitor Hardware Constants (battery monitor on A0)
-// Voltage divider: battery → R_upper → A0 → R_lower → GND
-#define VOLTAGE_R_UPPER 33000.0        // 33K upper resistor
-#define VOLTAGE_R_LOWER 10000.0        // 10K lower resistor (to GND)
-// Scale factor: V_battery = V_pin * (R_upper + R_lower) / R_lower
-#define VOLTAGE_SCALE ((VOLTAGE_R_UPPER + VOLTAGE_R_LOWER) / VOLTAGE_R_LOWER)  // 4.3
+// Battery voltage and load current are read via the ADS1115 in the Solar
+// Battery Case (see ADS1115 channel defines above), not a native ADC divider.
 
 // Radio Configuration
 const byte address[6] = "00001";  // Pipe address for communication
@@ -85,10 +102,15 @@ const byte address[6] = "00001";  // Pipe address for communication
 RF24 radio(CE_PIN, CSN_PIN);
 Adafruit_BME280 bme;
 Adafruit_AS5600 as5600;
+Adafruit_ADS1115 ads;
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature soilTempSensor(&oneWire);
 
 // Sensor initialization status (tracks whether begin() succeeded in setup)
 bool bmeInitialized = false;
 bool as5600Initialized = false;
+bool adsInitialized = false;
+bool soilTempInitialized = false;
 
 void setup() {
   // Initialize Serial for debugging
@@ -209,6 +231,41 @@ void setup() {
 
   delay(ONE_SECOND);
 
+  DEBUG_PRINTLN(F("Starting ADS1115 initialization..."));
+
+  // Initialize ADS1115 (light, UV, battery voltage and current shunt)
+  if (!ads.begin(ADS1115_ADDRESS)) {
+    DEBUG_PRINTLN(F("ADS1115 initialization failed! Check wiring and I2C address."));
+    blinkLED(5);  // Medium blink indicates sensor error
+    adsInitialized = false;
+  } else {
+    DEBUG_PRINTLN(F("ADS1115 initialized successfully"));
+    adsInitialized = true;
+    // GAIN_TWOTHIRDS: ±6.144V full scale, suitable for the ~3.7V solar
+    // battery and 5V-referenced light/UV signals.
+    ads.setGain(GAIN_TWOTHIRDS);
+  }
+
+  delay(ONE_SECOND);
+
+  DEBUG_PRINTLN(F("Starting DS18B20 initialization..."));
+
+  // Initialize DS18B20 soil temperature sensor (1-Wire)
+  soilTempSensor.begin();
+  if (soilTempSensor.getDeviceCount() == 0) {
+    DEBUG_PRINTLN(F("DS18B20 not found on 1-Wire bus! Check wiring and pullup."));
+    blinkLED(5);  // Medium blink indicates sensor error
+    soilTempInitialized = false;
+  } else {
+    DEBUG_PRINTLN(F("DS18B20 initialized successfully"));
+    soilTempInitialized = true;
+    // Blocking conversion: requestTemperatures() waits for the sensor, which
+    // is fine since the MCU sleeps between transmissions anyway.
+    soilTempSensor.setWaitForConversion(true);
+  }
+
+  delay(ONE_SECOND);
+
   // Initialize Wind Speed analog pin
   pinMode(WIND_SPEED_PIN, INPUT);
 
@@ -280,13 +337,48 @@ SensorData readSensors() {
     DEBUG_PRINTLN(F("Warning: AS5600 read failed"));
   }
 
-  // Read Voltage (A0) - battery monitor via voltage divider (R_upper=33K, R_lower=10K)
-  // Scale pin voltage back to actual battery voltage, store as millivolts
-  float vpin = (analogRead(VOLTAGE_PIN) * 5.0f) / 1023.0f;
-  data.voltage = (uint16_t)(vpin * VOLTAGE_SCALE * 1000.0f);
+  // Read DS18B20 (Soil Temperature, 1-Wire)
+  if (soilTempInitialized) {
+    soilTempSensor.requestTemperatures();  // Trigger + wait for conversion
+    float soilTempC = soilTempSensor.getTempCByIndex(0);
+    if (soilTempC == DEVICE_DISCONNECTED_C) {
+      data.soilTemperature = -99900;  // Error sentinel (-999.00 °C)
+      DEBUG_PRINTLN(F("Warning: DS18B20 read failed (disconnected)"));
+    } else {
+      data.soilTemperature = (int32_t)round(soilTempC * 100);
+    }
+  } else {
+    data.soilTemperature = -99900;  // Error sentinel (-999.00 °C)
+    DEBUG_PRINTLN(F("Warning: DS18B20 not initialized"));
+  }
 
-  // Read Light Level (A1) - raw ADC value (0-1023)
-  data.light = (uint16_t)analogRead(LIGHT_PIN);
+  // Read Soil Moisture (native analog pin) - raw ADC value (0-1023)
+  data.soilMoisture = (uint16_t)analogRead(SOIL_MOISTURE_PIN);
+
+  // Read ADS1115 channels (light, UV, solar battery voltage, current shunt)
+  if (adsInitialized) {
+    // Light (ch0) and UV (ch1) as raw single-ended counts (clamp negatives)
+    int16_t lightRaw = ads.readADC_SingleEnded(ADS_CH_LIGHT);
+    int16_t uvRaw = ads.readADC_SingleEnded(ADS_CH_UV);
+    data.light = (uint16_t)constrain(lightRaw, 0, 32767);
+    data.uv = (uint16_t)constrain(uvRaw, 0, 32767);
+
+    // Solar battery voltage (ch2) in millivolts
+    float batteryV = ads.computeVolts(ads.readADC_SingleEnded(ADS_CH_BATTERY));
+    data.voltage = (uint16_t)constrain(batteryV * 1000.0f, 0, 65535);
+
+    // Load current from the shunt: Ig = (V_ch2 - V_ch3) / R8.
+    // Read differentially across ch2-ch3 for better small-signal accuracy.
+    float shuntV = ads.computeVolts(ads.readADC_Differential_2_3());
+    float currentA = shuntV / CURRENT_SHUNT_R8;
+    data.current = (uint16_t)constrain(currentA * 1000.0f, 0, 65535);
+  } else {
+    data.light = 0;
+    data.uv = 0;
+    data.voltage = 0;
+    data.current = 0;
+    DEBUG_PRINTLN(F("Warning: ADS1115 not initialized"));
+  }
 
   // Read Wind Speed (analog sensor)
   // Apply calibration offset to raw analog reading
@@ -320,8 +412,12 @@ void transmitData(SensorData data) {
     DEBUG_PRINT(F(" hum="));         DEBUG_PRINT(data.humidity);
     DEBUG_PRINT(F(" wdir="));        DEBUG_PRINT(data.windDirection);
     DEBUG_PRINT(F(" wspd="));        DEBUG_PRINT(data.windSpeed);
+    DEBUG_PRINT(F(" soilT="));       DEBUG_PRINT(data.soilTemperature);
+    DEBUG_PRINT(F(" soilM="));       DEBUG_PRINT(data.soilMoisture);
+    DEBUG_PRINT(F(" light="));       DEBUG_PRINT(data.light);
+    DEBUG_PRINT(F(" uv="));          DEBUG_PRINT(data.uv);
     DEBUG_PRINT(F(" vcc="));         DEBUG_PRINT(data.voltage);
-    DEBUG_PRINT(F(" light="));       DEBUG_PRINTLN(data.light);
+    DEBUG_PRINT(F(" curr="));        DEBUG_PRINTLN(data.current);
     blinkLED(1);
   } else {
     DEBUG_PRINTLN(F("✗ Transmission failed"));

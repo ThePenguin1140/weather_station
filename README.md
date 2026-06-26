@@ -16,8 +16,11 @@ This monorepo contains:
 - **Sensors**:
   - BME280 (Pressure, Temperature, Humidity via I2C)
   - AS5600 (Wind Direction via I2C)
-  - Wind Speed Sensor (Potentiometer-based, Analog)
-- **Power**: 8V input with 3.3V buck converter regulation
+  - Wind Speed Sensor (anemometer, Analog)
+  - DS18B20 (Soil Temperature via 1-Wire)
+  - Capacitive Soil Moisture Sensor (Analog)
+  - ADS1115 4-channel ADC (Light/LDR, UV, solar battery voltage, load current via I2C)
+- **Power**: 8V input with 3.3V buck converter regulation; solar battery (3.7V) in Solar Battery Case
 - **Status LED**: Visual indication of operation
 
 ### Server (Raspberry Pi)
@@ -62,14 +65,20 @@ See [server/README.md](server/README.md) for Raspberry Pi and OpenHAB setup inst
 
 ### Data Structure
 
-The Arduino transmits a packed binary struct containing:
-- `temperature` (float, Celsius)
-- `pressure` (float, Pascals)
-- `humidity` (float, percentage)
-- `wind_direction` (uint16_t, raw angle 0-4095)
-- `wind_speed` (float, km/h)
+The Arduino transmits a packed binary struct (`<iIHHiiHHHHH`, 30 bytes):
+- `temperature` (int32, °C × 100) — BME280
+- `pressure` (uint32, Pascals) — BME280
+- `humidity` (uint16, %) — BME280
+- `wind_direction` (uint16, degrees 0-359) — AS5600
+- `wind_speed` (int32, km/h × 100) — anemometer
+- `soil_temperature` (int32, °C × 100) — DS18B20 (1-Wire)
+- `soil_moisture` (uint16, raw ADC 0-1023) — analog
+- `light` (uint16, raw counts) — ADS1115 ch0
+- `uv` (uint16, raw counts) — ADS1115 ch1
+- `voltage` (uint16, mV) — solar battery via ADS1115 ch2
+- `current` (uint16, mA) — load current via ADS1115 ch2−ch3 / R8
 
-**Note**: JSON format is only used for serial debugging output. The actual wireless transmission uses a compact binary struct to stay within the NRF24L01 32-byte payload limit. The Python receiver parses this binary format using `struct.unpack("<fffHf", data_bytes)`.
+**Note**: JSON format is only used for serial debugging output. The actual wireless transmission uses a compact binary struct to stay within the NRF24L01 32-byte payload limit (30 of 32 bytes used). The Python receiver parses this binary format using `struct.unpack("<iIHHiiHHHHH", data_bytes)`.
 
 ## Features
 

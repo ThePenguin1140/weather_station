@@ -25,7 +25,27 @@ Install these libraries via Arduino IDE Library Manager (Sketch > Include Librar
    - Installation: Search for "Adafruit AS5600" in Library Manager
    - Note: Arduino IDE will automatically install dependencies
 
-4. ArduinoJson by Benoit Blanchon
+4. Adafruit ADS1X15
+   - Library Name: Adafruit ADS1X15
+   - Version: Latest (2.4.0 or newer)
+   - Purpose: ADS1115 4-channel 16-bit ADC (light, UV, solar battery voltage, current shunt)
+   - Dependencies: Adafruit BusIO
+   - Installation: Search for "Adafruit ADS1X15" in Library Manager
+
+5. DallasTemperature by Miles Burton
+   - Library Name: DallasTemperature
+   - Version: Latest (3.9.0 or newer)
+   - Purpose: DS18B20 soil temperature sensor (1-Wire)
+   - Dependencies: OneWire
+   - Installation: Search for "DallasTemperature" in Library Manager
+
+6. OneWire by Paul Stoffregen
+   - Library Name: OneWire
+   - Version: Latest (2.3.7 or newer)
+   - Purpose: 1-Wire bus protocol for DS18B20
+   - Installation: Installed automatically with DallasTemperature, or search "OneWire"
+
+7. ArduinoJson by Benoit Blanchon
    - Library Name: ArduinoJson
    - Version: Latest (6.x or newer)
    - Purpose: JSON serialization for data transmission
@@ -33,7 +53,7 @@ Install these libraries via Arduino IDE Library Manager (Sketch > Include Librar
 
 Built-in Libraries (no installation needed):
 - SPI: Serial Peripheral Interface for NRF24L01
-- Wire: I2C communication for BME280 and AS5600
+- Wire: I2C communication for BME280, AS5600 and ADS1115
 
 Installation Steps:
 1. Open Arduino IDE
