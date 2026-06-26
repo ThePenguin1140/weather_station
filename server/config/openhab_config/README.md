@@ -21,8 +21,10 @@ This directory contains OpenHAB configuration files for the Weather Station proj
    - `weather_station.items` → `items/weather_station.items`
    - `weather_station.sitemap` → `sitemaps/weather_station.sitemap`
    - `weather_station.rules` → `rules/weather_station.rules`
-   - `rrd4j.persist` → `persistence/rrd4j.persist`
-   - `services/rrd4j.cfg` → `services/rrd4j.cfg`
+   - `jdbc.persist` → `persistence/jdbc.persist`
+   - `jdbc.cfg` → `services/jdbc.cfg`
+   - `influxdb.persist` → `persistence/influxdb.persist`
+   - `influxdb.cfg` → `services/influxdb.cfg`
 
 4. Restart OpenHAB service:
    ```bash
@@ -37,7 +39,6 @@ The items file defines the OpenHAB items that will receive sensor data:
 
 - `WeatherStation_Temperature`: Temperature in °C (Number:Temperature)
 - `WeatherStation_Pressure`: Pressure in hPa (Number:Pressure)
-- `WeatherStation_Altitude`: Altitude in meters (Number:Length)
 - `WeatherStation_Humidity`: Humidity in % (Number:Dimensionless)
 - `WeatherStation_AbsoluteHumidity`: Absolute humidity in g/m³ (Number:Dimensionless)
 - `WeatherStation_WindDirection`: Wind direction in degrees (Number:Angle)
@@ -56,7 +57,7 @@ The items file defines the OpenHAB items that will receive sensor data:
 
 The sitemap file defines a comprehensive dashboard for displaying weather station data in OpenHAB, including:
 
-- Current conditions display (temperature, humidity, pressure, altitude)
+- Current conditions display (temperature, humidity, pressure)
 - Wind information (speed and direction)
 - Historical charts for all sensors (24 hours, 7 days, 30 days)
 - Combined multi-sensor charts for correlation analysis
@@ -78,45 +79,46 @@ Optional automation rules for:
 - Alerting on extreme values (temperature < -10°C, wind speed > 80 km/h)
 - Detecting stale data (no updates in 35 minutes; data normally every 4–30 min)
 
-### Persistence File (`rrd4j.persist`)
+### Persistence Files (`jdbc.persist` + `influxdb.persist`)
 
-Configures time series data storage for all weather station items using RRD4J persistence service. **Tuned for data every 4–30 minutes** (lower-power transmission).
+Time series data is stored by **two persistence services running in parallel**:
 
-A custom RRD4J datasource in `services/rrd4j.cfg` uses a **60 min heartbeat** so readings up to ~30 min apart are accepted (default RRD4J heartbeat is 10 min and would mark valid readings as missing).
+- **JDBC (SQLite)** — the default service, used for OpenHAB's own historical
+  queries (`historicState`, `averageSince`, the stale-data rule, etc.).
+- **InfluxDB 2** — feeds the Grafana dashboards (see
+  `server/config/grafana/`). The receiver's derived `WeatherStation_AbsoluteHumidity`
+  is persisted here too.
 
-**Persistence Strategies:**
+RRD4J was removed: it stores `Number:Temperature` and other UoM item types but
+the REST query API returns 0 points for them, so all charts were blank. See
+`server/INFLUXDB_GRAFANA_PLAN.md` for the migration details.
+
+**Persistence Strategies** (both `jdbc.persist` and `influxdb.persist`):
 
 - `everyChange`: Stores data whenever a value changes (primary for sparse 4–30 min data)
-- `everyMinute`: Stores data every minute (for consistent time series)
 - `everyHour`: Stores data every hour (for daily/weekly trends)
-- `everyDay`: Stores data once per day (for long-term storage)
 
 **Accessing Historical Data:**
 
-- **REST API**: `GET /rest/persistence/items/{itemName}?starttime=YYYY-MM-DDTHH:mm:ss&endtime=YYYY-MM-DDTHH:mm:ss`
+- **Grafana**: open the Weather Station dashboard at `http://your-openhab:3000`
+- **REST API (JDBC)**: `GET /rest/persistence/items/{itemName}?serviceId=jdbc&starttime=...&endtime=...`
 - **Rules**: Use `itemName.historicState(timestamp)` or `itemName.averageSince(timestamp)`
-- **Charts**: Use chart widgets in the OpenHAB UI to visualize historical data
 
-**Note**: RRD4J is included by default in OpenHAB 5.0.3. If persistence is not working, ensure the RRD4J persistence add-on is installed via the OpenHAB UI (Settings → Add-ons → Persistence → RRD4J).
+**Note**: Install both persistence add-ons via the OpenHAB UI
+(Settings → Add-ons → Persistence → **JDBC** and **InfluxDB 2**). The InfluxDB
+service additionally needs `services/influxdb.cfg` with a valid token (injected
+by `deploy_openhab.py` from `config.json`).
 
 **Verifying Persistence:**
 
 1. After deploying and restarting OpenHAB, wait a few minutes for data to be collected
 2. Query historical data via REST API:
    ```bash
-   # Get temperature data from the last hour
-   curl "http://localhost:8080/rest/persistence/items/WeatherStation_Temperature?starttime=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S)&endtime=$(date -u +%Y-%m-%dT%H:%M:%S)"
+   # Get temperature data from the last hour (JDBC service)
+   curl "http://localhost:8080/rest/persistence/items/WeatherStation_Temperature?serviceId=jdbc&starttime=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S)&endtime=$(date -u +%Y-%m-%dT%H:%M:%S)"
    ```
-3. Check persistence data directory: `/var/lib/openhab/persistence/rrd4j/` (or check OpenHAB logs for the actual location)
-4. Create charts in the OpenHAB UI to visualize historical data
-
-**Troubleshooting (existing RRD files):** If items were previously persisted with the default 10 min heartbeat, OpenHAB may keep using those .rrd files. After deploying `services/rrd4j.cfg`, if charts or persistence behave oddly, remove the weather station RRD files and restart OpenHAB so new files are created with the custom datasource:
-
-```bash
-sudo systemctl stop openhab
-sudo rm /var/lib/openhab/persistence/rrd4j/WeatherStation_*.rrd
-sudo systemctl start openhab
-```
+3. Confirm InfluxDB is receiving points: `sudo grep -i influx /var/log/openhab/openhab.log | tail` should show `Stored 'WeatherStation_Temperature'` entries
+4. Open the Grafana dashboard to visualize historical data
 
 ## REST API Integration
 
