@@ -97,6 +97,14 @@
                         "component": "oh-label-card",
                         "config": {
                           "action": "navigate",
+                          "actionPage": "page:page_absolute_humidity_chart",
+                          "item": "WeatherStation_AbsoluteHumidity"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "action": "navigate",
                           "actionPage": "page:page_temperature_chart",
                           "item": "WeatherStation_Temperature"
                         }
@@ -531,6 +539,74 @@
               "gridIndex": 0,
               "item": "WeatherStation_Light",
               "name": "Light",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "jdbc"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_absolute_humidity_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_absolute_humidity_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Apr 20, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Absolute Humidity",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_AbsoluteHumidity",
+              "name": "Absolute Humidity",
               "type": "line",
               "xAxisIndex": 0,
               "yAxisIndex": 0,

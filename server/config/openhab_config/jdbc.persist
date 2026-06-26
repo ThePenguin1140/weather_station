@@ -12,11 +12,12 @@ Strategies {
 }
 
 Items {
-    WeatherStation_Temperature    : strategy = everyChange, everyHour
-    WeatherStation_Pressure       : strategy = everyChange, everyHour
-    WeatherStation_Humidity       : strategy = everyChange, everyHour
-    WeatherStation_WindDirection  : strategy = everyChange, everyHour
-    WeatherStation_WindSpeed      : strategy = everyChange, everyHour
-    WeatherStation_Voltage        : strategy = everyChange, everyHour
-    WeatherStation_Light          : strategy = everyChange, everyHour
+    WeatherStation_Temperature      : strategy = everyChange, everyHour
+    WeatherStation_Pressure         : strategy = everyChange, everyHour
+    WeatherStation_Humidity         : strategy = everyChange, everyHour
+    WeatherStation_WindDirection    : strategy = everyChange, everyHour
+    WeatherStation_WindSpeed        : strategy = everyChange, everyHour
+    WeatherStation_Voltage          : strategy = everyChange, everyHour
+    WeatherStation_Light            : strategy = everyChange, everyHour
+    WeatherStation_AbsoluteHumidity : strategy = everyChange, everyHour
 }

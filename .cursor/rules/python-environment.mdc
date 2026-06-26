@@ -1,51 +1,90 @@
 ---
-description: Windows 11 PowerShell environment with Python venv requirements
+description: Python environment rules for Windows 11 (PowerShell) and WSL2 (bash)
 globs: **/*.py
 alwaysApply: false
 ---
 
 # Python Environment Rules
 
-## System Environment
+## Python Version
 
-- **OS**: Windows 11
-- **Default Terminal**: PowerShell
-- **Python Virtual Environment**: Must be used for all Python-related activities
+- **Target**: Python 3.13.7 (pinned via `.python-version` for pyenv)
 
-## Virtual Environment Usage
+## Environments
+
+This project supports two separate Python environments that cannot be shared:
+
+| Environment | venv path | Activation |
+|-------------|-----------|------------|
+| Windows / PowerShell | `venv/` | `.\venv\Scripts\Activate.ps1` |
+| WSL2 / bash | `.venv-wsl/` | `source .venv-wsl/bin/activate` |
+
+## WSL2 Setup (pyenv + bash)
+
+pyenv is used in WSL2 to manage the Python version.
+
+```bash
+# Install pyenv (first time only)
+curl https://pyenv.run | bash
+
+# Add to ~/.bashrc or ~/.zshrc (first time only)
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+# Install and activate the pinned version
+pyenv install 3.13.7
+pyenv global 3.13.7
+
+# Create WSL venv (first time only)
+python -m venv .venv-wsl
+source .venv-wsl/bin/activate
+pip install -r server/requirements.txt
+```
+
+### Before Python Operations (WSL2)
+
+1. Check if venv is activated (look for `(.venv-wsl)` in the prompt)
+2. If not activated: `source .venv-wsl/bin/activate`
+3. Then proceed with Python commands
+
+```bash
+# ✅ CORRECT
+source .venv-wsl/bin/activate
+python server/deploy_openhab.py
+
+# ✅ CORRECT - install packages
+source .venv-wsl/bin/activate
+pip install -r server/requirements.txt
+
+# ❌ INCORRECT - running without venv
+python3 server/deploy_openhab.py
+```
+
+## Windows / PowerShell
 
 **ALWAYS** activate the virtual environment before running Python commands, scripts, or installing packages.
 
-### Activation
+### Before Python Operations (Windows)
 
-```powershell
-# Activate the venv
-.\venv\Scripts\Activate.ps1
-```
-
-### Before Python Operations
-
-Before executing any Python-related commands:
 1. Check if venv is activated (look for `(venv)` in the prompt)
-2. If not activated, activate it: `.\venv\Scripts\Activate.ps1`
+2. If not activated: `.\venv\Scripts\Activate.ps1`
 3. Then proceed with Python commands
 
-### Examples
-
 ```powershell
-# ✅ CORRECT - Activate venv first
+# ✅ CORRECT
 .\venv\Scripts\Activate.ps1
 python server/deploy_openhab.py
 
-# ✅ CORRECT - Install packages in venv
+# ✅ CORRECT - install packages
 .\venv\Scripts\Activate.ps1
 pip install -r server/requirements.txt
 
-# ❌ INCORRECT - Running Python without venv
-python server/deploy_openhab.py  # Missing venv activation
+# ❌ INCORRECT - running without venv
+python server/deploy_openhab.py
 ```
 
-### Terminal Commands
+### Terminal Commands (Windows)
 
 - Use PowerShell syntax for all terminal commands
 - Use `.\` prefix for relative paths in PowerShell

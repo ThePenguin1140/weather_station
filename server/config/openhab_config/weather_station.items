@@ -4,8 +4,7 @@
 // These items are updated directly via REST API by the Python receiver script.
 // No channel bindings are needed since receiver.py sends data directly to item states.
 //
-// Persistence: These items use the custom RRD4J "weather" datasource (services/rrd4j.cfg),
-// with 60 min heartbeat for data every 4–30 minutes. Strategies are in rrd4j.persist.
+// Persistence: JDBC (SQLite) as default; InfluxDB for Grafana dashboards. Both run in parallel.
 
 Group WeatherStation "Weather Station" <temperature>
 

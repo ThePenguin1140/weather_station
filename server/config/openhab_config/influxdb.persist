@@ -7,10 +7,15 @@
 Strategies {
     everyHour : "0 0 * * * ?"
     everyDay  : "0 0 0 * * ?"
-
-    default = everyChange
 }
 
 Items {
-    WeatherStation_* : strategy = everyChange, everyHour
+    WeatherStation_Temperature    : strategy = everyChange, everyHour
+    WeatherStation_Pressure       : strategy = everyChange, everyHour
+    WeatherStation_Humidity       : strategy = everyChange, everyHour
+    WeatherStation_WindDirection  : strategy = everyChange, everyHour
+    WeatherStation_WindSpeed      : strategy = everyChange, everyHour
+    WeatherStation_Voltage        : strategy = everyChange, everyHour
+    WeatherStation_Light          : strategy = everyChange, everyHour
+    WeatherStation_AbsoluteHumidity : strategy = everyChange, everyHour
 }

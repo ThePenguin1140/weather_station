@@ -1,173 +1,2101 @@
 {
-  "title": "Weather Station",
+  "title": "Weather Station \u2014 Gardening Overview",
   "uid": "weather-station",
   "schemaVersion": 38,
-  "version": 1,
-  "refresh": "1m",
-  "tags": ["weather-station"],
-  "time": { "from": "now-24h", "to": "now" },
-  "timepicker": {},
+  "version": 10,
+  "refresh": "5m",
+  "tags": [
+    "weather-station",
+    "gardening"
+  ],
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ],
+    "time_options": [
+      "24h",
+      "7d",
+      "30d",
+      "90d",
+      "6M",
+      "1y"
+    ]
+  },
   "timezone": "browser",
   "editable": true,
   "graphTooltip": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "gdd_base",
+        "label": "GDD base (\u00b0C)",
+        "type": "custom",
+        "query": "4,5.5,7,10,15",
+        "current": {
+          "text": "10",
+          "value": "10"
+        },
+        "options": [
+          {
+            "text": "4",
+            "value": "4",
+            "selected": false
+          },
+          {
+            "text": "5.5",
+            "value": "5.5",
+            "selected": false
+          },
+          {
+            "text": "7",
+            "value": "7",
+            "selected": false
+          },
+          {
+            "text": "10",
+            "value": "10",
+            "selected": true
+          },
+          {
+            "text": "15",
+            "value": "15",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "frost_threshold",
+        "label": "Frost \u2264 (\u00b0C)",
+        "type": "custom",
+        "query": "-2,0,2",
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "options": [
+          {
+            "text": "-2",
+            "value": "-2",
+            "selected": false
+          },
+          {
+            "text": "0",
+            "value": "0",
+            "selected": true
+          },
+          {
+            "text": "2",
+            "value": "2",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "heat_threshold",
+        "label": "Heat \u2265 (\u00b0C)",
+        "type": "custom",
+        "query": "28,30,32,35",
+        "current": {
+          "text": "30",
+          "value": "30"
+        },
+        "options": [
+          {
+            "text": "28",
+            "value": "28",
+            "selected": false
+          },
+          {
+            "text": "30",
+            "value": "30",
+            "selected": true
+          },
+          {
+            "text": "32",
+            "value": "32",
+            "selected": false
+          },
+          {
+            "text": "35",
+            "value": "35",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "vpd_min",
+        "label": "VPD ideal min (kPa)",
+        "type": "custom",
+        "query": "0.6,0.8,1.0",
+        "current": {
+          "text": "0.8",
+          "value": "0.8"
+        },
+        "options": [
+          {
+            "text": "0.6",
+            "value": "0.6",
+            "selected": false
+          },
+          {
+            "text": "0.8",
+            "value": "0.8",
+            "selected": true
+          },
+          {
+            "text": "1.0",
+            "value": "1.0",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "vpd_max",
+        "label": "VPD ideal max (kPa)",
+        "type": "custom",
+        "query": "1.0,1.2,1.5",
+        "current": {
+          "text": "1.2",
+          "value": "1.2"
+        },
+        "options": [
+          {
+            "text": "1.0",
+            "value": "1.0",
+            "selected": false
+          },
+          {
+            "text": "1.2",
+            "value": "1.2",
+            "selected": true
+          },
+          {
+            "text": "1.5",
+            "value": "1.5",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Frost events",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb-weatherstation"
+        },
+        "enable": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "hide": false,
+        "target": {
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1h, fn: min, createEmpty: false)\n  |> filter(fn: (r) => r._value <= float(v: \"${frost_threshold}\"))\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "type": "flux"
+        }
+      }
+    ]
+  },
+  "links": [],
   "panels": [
     {
       "id": 1,
-      "title": "Temperature",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "celsius",
-          "color": { "mode": "palette-classic" },
-          "custom": { "lineWidth": 2, "fillOpacity": 10 }
-        }
+      "title": "Right now",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
-          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
-        }
-      ]
+      "panels": []
     },
     {
       "id": 2,
-      "title": "Humidity",
-      "type": "timeseries",
-      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
+      "title": "Temperature",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "color": { "mode": "palette-classic" },
-          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+          "unit": "celsius",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 28
+              },
+              {
+                "color": "red",
+                "value": 35
+              }
+            ]
+          }
         }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
-          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"WeatherStation_Humidity\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Pressure",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
+      "title": "Dew point",
+      "description": "August-Roche-Magnus approximation from T + RH. Below 0 \u00b0C indicates frost risk.",
+      "type": "stat",
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "pressurehpa",
-          "color": { "mode": "palette-classic" },
-          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+          "unit": "celsius",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 18
+              }
+            ]
+          }
         }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
-          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"WeatherStation_Pressure\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "import \"math\"\n\nfrom(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\" or r._measurement == \"WeatherStation_Humidity\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group(columns: [\"_measurement\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_measurement\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.WeatherStation_Temperature and exists r.WeatherStation_Humidity)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      _field: \"dew_point\",\n      _value: (243.04 * (math.log(x: r.WeatherStation_Humidity / 100.0) + (17.625 * r.WeatherStation_Temperature) / (243.04 + r.WeatherStation_Temperature))) / (17.625 - math.log(x: r.WeatherStation_Humidity / 100.0) - (17.625 * r.WeatherStation_Temperature) / (243.04 + r.WeatherStation_Temperature))\n  }))\n  |> yield(name: \"dew_point\")"
         }
       ]
     },
     {
       "id": 4,
-      "title": "Wind Speed (5-min average)",
-      "type": "timeseries",
-      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
+      "title": "Humidity",
+      "type": "stat",
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "velocitykmh",
+          "unit": "percent",
+          "decimals": 0,
           "min": 0,
-          "color": { "mode": "palette-classic" },
-          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 40
+              },
+              {
+                "color": "orange",
+                "value": 85
+              }
+            ]
+          }
         }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
-          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Humidity\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
         }
       ]
     },
     {
       "id": 5,
-      "title": "Wind Direction",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
+      "title": "VPD",
+      "description": "Vapor Pressure Deficit (kPa). Ideal range 0.8\u20131.2 for most vegetables. Low VPD = humid/stagnant, high VPD = transpiration stress.",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "degree",
-          "min": 0,
-          "max": 360,
-          "color": { "mode": "palette-classic" },
-          "custom": { "lineWidth": 2, "fillOpacity": 0, "drawStyle": "points", "pointSize": 4 }
+          "unit": "pressurekpa",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.4
+              },
+              {
+                "color": "green",
+                "value": 0.8
+              },
+              {
+                "color": "orange",
+                "value": 1.2
+              },
+              {
+                "color": "red",
+                "value": 1.6
+              }
+            ]
+          }
         }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
-          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"WeatherStation_WindDirection\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "import \"math\"\n\nfrom(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\" or r._measurement == \"WeatherStation_Humidity\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group(columns: [\"_measurement\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_measurement\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.WeatherStation_Temperature and exists r.WeatherStation_Humidity)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      _field: \"vpd\",\n      _value: 0.6108 * math.exp(x: 17.27 * r.WeatherStation_Temperature / (r.WeatherStation_Temperature + 237.3)) * (1.0 - r.WeatherStation_Humidity / 100.0)\n  }))\n  |> yield(name: \"vpd\")"
         }
       ]
     },
     {
       "id": 6,
-      "title": "Battery Voltage",
-      "type": "timeseries",
-      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
+      "title": "Wind",
+      "type": "stat",
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "volt",
-          "color": { "mode": "palette-classic" },
-          "custom": { "lineWidth": 2, "fillOpacity": 10 }
-        }
+          "unit": "velocitykmh",
+          "decimals": 1,
+          "min": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 25
+              },
+              {
+                "color": "red",
+                "value": 40
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
-          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"WeatherStation_Voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
         }
       ]
     },
     {
       "id": 7,
-      "title": "Light Level",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 },
-      "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
+      "title": "Pressure",
+      "description": "Current barometric pressure. Rapid drop (>3 hPa in 3 h) suggests incoming storm.",
+      "type": "stat",
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "displayName": "ADC (0–1023)",
-          "min": 0,
-          "max": 1023,
-          "color": { "mode": "palette-classic" },
-          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+          "unit": "pressurehpa",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Pressure\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Frost & heat",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "title": "Temperature + Dew point",
+      "description": "Dew point overlay. When T approaches dew point, condensation forms \u2014 frost risk when either \u2264 0 \u00b0C.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 16,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "drawStyle": "line"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "blue",
+                "value": 0
+              },
+              {
+                "color": "transparent",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "temperature"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dew_point"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "light-blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "influxdb", "uid": "influxdb-weatherstation" },
-          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"WeatherStation_Light\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"temperature\")\n  |> yield(name: \"temperature\")"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "import \"math\"\n\nfrom(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\" or r._measurement == \"WeatherStation_Humidity\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group(columns: [\"_measurement\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_measurement\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.WeatherStation_Temperature and exists r.WeatherStation_Humidity)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      _field: \"dew_point\",\n      _value: (243.04 * (math.log(x: r.WeatherStation_Humidity / 100.0) + (17.625 * r.WeatherStation_Temperature) / (243.04 + r.WeatherStation_Temperature))) / (17.625 - math.log(x: r.WeatherStation_Humidity / 100.0) - (17.625 * r.WeatherStation_Temperature) / (243.04 + r.WeatherStation_Temperature))\n  }))\n  |> yield(name: \"dew_point\")"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Daily min / max / mean",
+      "description": "Garden-almanac view of the selected range. Freeze damage tracks daily min; heat stress tracks daily max.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 16,
+        "y": 6,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "drawStyle": "bars",
+            "barAlignment": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tmax"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tmin"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tmean"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)\n  |> set(key: \"_field\", value: \"tmax\")\n  |> yield(name: \"tmax\")"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1d, fn: min, createEmpty: false)\n  |> set(key: \"_field\", value: \"tmin\")\n  |> yield(name: \"tmin\")"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"tmean\")\n  |> yield(name: \"tmean\")"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Plant stress",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 12,
+      "title": "VPD (vapor pressure deficit)",
+      "description": "Colored bands show ideal VPD zone (green) from template variables. Values outside are stagnant (low) or transpiration-stressed (high).",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pressurekpa",
+          "decimals": 2,
+          "min": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "drawStyle": "line",
+            "thresholdsStyle": {
+              "mode": "area"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.4
+              },
+              {
+                "color": "green",
+                "value": 0.8
+              },
+              {
+                "color": "orange",
+                "value": 1.2
+              },
+              {
+                "color": "red",
+                "value": 1.6
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "import \"math\"\n\nfrom(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\" or r._measurement == \"WeatherStation_Humidity\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group(columns: [\"_measurement\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_measurement\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.WeatherStation_Temperature and exists r.WeatherStation_Humidity)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      _field: \"vpd\",\n      _value: 0.6108 * math.exp(x: 17.27 * r.WeatherStation_Temperature / (r.WeatherStation_Temperature + 237.3)) * (1.0 - r.WeatherStation_Humidity / 100.0)\n  }))\n  |> yield(name: \"vpd\")"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Humidity \u2014 relative & absolute",
+      "description": "%RH (left axis) and absolute humidity in g/m\u00b3 (right axis). Absolute humidity is the actual water mass in air; use with temperature to reason about fog/dew.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "drawStyle": "line"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "relative_humidity"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "absolute_humidity"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "custom:g/m\u00b3"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Humidity\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"relative_humidity\")\n  |> yield(name: \"relative_humidity\")"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_AbsoluteHumidity\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"absolute_humidity\")\n  |> yield(name: \"absolute_humidity\")"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Growing season",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 15,
+      "title": "Growing Degree Days (daily, base ${gdd_base} \u00b0C)",
+      "description": "Daily GDD = max(daily mean T \u2212 base, 0). Accumulated GDD predicts crop development stages (flowering, fruiting, harvest).",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "drawStyle": "bars",
+            "barAlignment": 0
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "tbase = float(v: \"${gdd_base}\")\n\nfrom(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: if r._value - tbase > 0.0 then r._value - tbase else 0.0, _field: \"gdd\" }))\n  |> yield(name: \"gdd\")"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Daylight (relative DLI proxy)",
+      "description": "Daily integrated light from the raw ADC sensor. Uncalibrated \u2014 useful for comparing day-to-day light availability, not for absolute mol/m\u00b2/day.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 23,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "yellow"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "drawStyle": "bars",
+            "barAlignment": 0
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Light\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false)\n  |> set(key: \"_field\", value: \"dli_proxy\")\n  |> yield(name: \"dli_proxy\")"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "GDD cumulative (selected range)",
+      "description": "Sum of daily GDD over the selected time range at the current base temperature.",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "tbase = float(v: \"${gdd_base}\")\n\nfrom(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: if r._value - tbase > 0.0 then r._value - tbase else 0.0, _field: \"gdd\" }))\n  |> yield(name: \"gdd\")"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Chilling hours (<7.22 \u00b0C)",
+      "description": "Hours below 7.22 \u00b0C in the selected range \u2014 key for winter dormancy of fruit trees (cherries, apples, peaches need 200\u20131000 hrs).",
+      "type": "stat",
+      "gridPos": {
+        "x": 8,
+        "y": 30,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> filter(fn: (r) => r._value < 7.22)\n  |> count()\n  |> map(fn: (r) => ({ r with _value: float(v: r._value), _field: \"chilling_hours\" }))\n  |> yield(name: \"chilling_hours\")"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "Heat stress hours (\u2265${heat_threshold} \u00b0C)",
+      "description": "Hours at or above the heat threshold \u2014 sustained exposure reduces fruit set in tomatoes, peppers, and brassicas.",
+      "type": "stat",
+      "gridPos": {
+        "x": 16,
+        "y": 30,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-weatherstation"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto",
+        "orientation": "auto",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "query": "heat = float(v: \"${heat_threshold}\")\n\nfrom(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Temperature\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> filter(fn: (r) => r._value >= heat)\n  |> count()\n  |> map(fn: (r) => ({ r with _value: float(v: r._value), _field: \"heat_hours\" }))\n  |> yield(name: \"heat_hours\")"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Wind & sky",
+      "type": "row",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 21,
+          "title": "Wind \u2014 1 h envelope",
+          "type": "timeseries",
+          "gridPos": {
+            "x": 0,
+            "y": 35,
+            "w": 8,
+            "h": 7
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "velocitykmh",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic-by-name"
+              },
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 20
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_max"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillBelowTo",
+                    "value": "wind_min"
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "super-light-blue"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_min"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "super-light-blue"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_mean"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "blue"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1h, fn: max, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_max\")\n  |> yield(name: \"wind_max\")"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1h, fn: min, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_min\")\n  |> yield(name: \"wind_min\")"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_mean\")\n  |> yield(name: \"wind_mean\")"
+            }
+          ]
+        },
+        {
+          "id": 22,
+          "title": "Wind \u2014 3 h envelope",
+          "type": "timeseries",
+          "gridPos": {
+            "x": 8,
+            "y": 35,
+            "w": 8,
+            "h": 7
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "velocitykmh",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic-by-name"
+              },
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 20
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_max"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillBelowTo",
+                    "value": "wind_min"
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "super-light-blue"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_min"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "super-light-blue"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_mean"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "blue"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 3h, fn: max, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_max\")\n  |> yield(name: \"wind_max\")"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 3h, fn: min, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_min\")\n  |> yield(name: \"wind_min\")"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 3h, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_mean\")\n  |> yield(name: \"wind_mean\")"
+            }
+          ]
+        },
+        {
+          "id": 23,
+          "title": "Wind \u2014 6 h envelope",
+          "type": "timeseries",
+          "gridPos": {
+            "x": 16,
+            "y": 35,
+            "w": 8,
+            "h": 7
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "velocitykmh",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic-by-name"
+              },
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 20
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_max"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillBelowTo",
+                    "value": "wind_min"
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "super-light-blue"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_min"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "super-light-blue"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "wind_mean"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "blue"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 6h, fn: max, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_max\")\n  |> yield(name: \"wind_max\")"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 6h, fn: min, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_min\")\n  |> yield(name: \"wind_min\")"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: 6h, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_mean\")\n  |> yield(name: \"wind_mean\")"
+            }
+          ]
+        },
+        {
+          "id": 24,
+          "title": "Wind direction (sampled)",
+          "type": "timeseries",
+          "gridPos": {
+            "x": 0,
+            "y": 42,
+            "w": 16,
+            "h": 7
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "degree",
+              "min": 0,
+              "max": 360,
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "green"
+              },
+              "custom": {
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "drawStyle": "points",
+                "pointSize": 4
+              }
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindDirection\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")"
+            }
+          ]
+        },
+        {
+          "id": 25,
+          "title": "Wind direction now",
+          "type": "gauge",
+          "gridPos": {
+            "x": 16,
+            "y": 42,
+            "w": 8,
+            "h": 7
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "degree",
+              "min": 0,
+              "max": 360,
+              "mappings": [
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 0,
+                    "to": 22.5,
+                    "result": {
+                      "text": "N"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 22.5,
+                    "to": 67.5,
+                    "result": {
+                      "text": "NE"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 67.5,
+                    "to": 112.5,
+                    "result": {
+                      "text": "E"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 112.5,
+                    "to": 157.5,
+                    "result": {
+                      "text": "SE"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 157.5,
+                    "to": 202.5,
+                    "result": {
+                      "text": "S"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 202.5,
+                    "to": 247.5,
+                    "result": {
+                      "text": "SW"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 247.5,
+                    "to": 292.5,
+                    "result": {
+                      "text": "W"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 292.5,
+                    "to": 337.5,
+                    "result": {
+                      "text": "NW"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": 337.5,
+                    "to": 360,
+                    "result": {
+                      "text": "N"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "continuous-GrYlRd"
+              }
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showThresholdLabels": false,
+            "showThresholdMarkers": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindDirection\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> last()\n  |> yield(name: \"last\")"
+            }
+          ]
+        },
+        {
+          "id": 30,
+          "title": "Wind rose",
+          "type": "operato-windrose-panel",
+          "transparent": true,
+          "gridPos": {
+            "x": 0,
+            "y": 49,
+            "w": 16,
+            "h": 16
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "options": {
+            "windSpeedUnit": "kmh"
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "direction = from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindDirection\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> set(key: \"_field\", value: \"wind_direction\")\n  |> keep(columns: [\"_time\", \"_field\", \"_value\"])\n\nspeed = from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_WindSpeed\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value / 3.6 }))\n  |> set(key: \"_field\", value: \"wind_speed\")\n  |> keep(columns: [\"_time\", \"_field\", \"_value\"])\n\nunion(tables: [direction, speed])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.wind_direction and exists r.wind_speed)\n  |> yield(name: \"wind_data\")"
+            }
+          ]
+        },
+        {
+          "id": 26,
+          "title": "Light level (raw ADC)",
+          "type": "timeseries",
+          "gridPos": {
+            "x": 0,
+            "y": 65,
+            "w": 24,
+            "h": 6
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "displayName": "ADC (0\u20131023)",
+              "min": 0,
+              "max": 1023,
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "yellow"
+              },
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Light\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"last\")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "title": "System health",
+      "type": "row",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 28,
+          "title": "Pressure",
+          "type": "timeseries",
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 12,
+            "h": 6
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "pressurehpa",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "purple"
+              },
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Pressure\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"last\")"
+            }
+          ]
+        },
+        {
+          "id": 29,
+          "title": "Battery voltage",
+          "type": "timeseries",
+          "gridPos": {
+            "x": 12,
+            "y": 36,
+            "w": 12,
+            "h": 6
+          },
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-weatherstation"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "volt",
+              "decimals": 2,
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "thresholdsStyle": {
+                  "mode": "line"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 3.0
+                  },
+                  {
+                    "color": "green",
+                    "value": 3.3
+                  }
+                ]
+              }
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb-weatherstation"
+              },
+              "query": "from(bucket: \"weatherstation\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"WeatherStation_Voltage\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group()\n  |> drop(columns: [\"category\", \"item\", \"label\", \"type\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"last\")"
+            }
+          ]
         }
       ]
     }
-  ],
-  "annotations": { "list": [] },
-  "links": [],
-  "templating": { "list": [] }
+  ]
 }

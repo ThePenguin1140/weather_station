@@ -362,7 +362,7 @@ def deploy_receiver_service(ssh, project_root, remote_dir, service_name, deploy_
         return deps_ok
 
 
-def deploy_grafana(ssh, influxdb_token, project_root, home_dir, dry_run=False, restart_service=True):
+def deploy_grafana(ssh, influxdb_token, project_root, home_dir, dry_run=False, restart_service=True, install_plugins=True):
     """Deploy Grafana provisioning files and dashboard JSON to the server."""
     grafana_dir = project_root / "server" / "config" / "grafana"
 
@@ -381,6 +381,8 @@ def deploy_grafana(ssh, influxdb_token, project_root, home_dir, dry_run=False, r
         for local_path, remote_path, _ in files:
             status = "" if local_path.exists() else " (FILE NOT FOUND)"
             print(f"  {local_path} -> {remote_path}{status}")
+        if install_plugins:
+            print("Would install plugin: operato-windrose-panel (if not already present)")
         print("Would restart grafana-server")
         return True
 
@@ -389,6 +391,38 @@ def deploy_grafana(ssh, influxdb_token, project_root, home_dir, dry_run=False, r
                      "/etc/grafana/provisioning/dashboards",
                      "/etc/grafana/dashboards"]:
         execute_ssh_command(ssh, f"mkdir -p {dir_path} 2>/dev/null || true")
+
+    # Install and validate wind rose plugin
+    plugin_newly_installed = False
+    if install_plugins:
+        print("\nChecking Grafana wind rose plugin...")
+        _, plugin_check, _ = execute_ssh_command(
+            ssh,
+            "test -d /var/lib/grafana/plugins/operato-windrose-panel && echo INSTALLED || echo MISSING"
+        )
+        if plugin_check.strip() == "INSTALLED":
+            print("  ✓ operato-windrose-panel already installed")
+        else:
+            print("  Installing operato-windrose-panel...")
+            exit_status, stdout_text, stderr_text = execute_ssh_command(
+                ssh,
+                "sudo /usr/sbin/grafana cli plugins install operato-windrose-panel"
+            )
+            if exit_status != 0:
+                print(f"  ✗ Plugin install failed: {stderr_text.strip()}")
+                print("  Hint: ensure the sudoers entry for grafana-cli is added on the server (see SETUP_DEPLOY_USER.md Step 6)")
+                return False
+            # Validate the plugin directory actually exists after install
+            _, verify_check, _ = execute_ssh_command(
+                ssh,
+                "test -d /var/lib/grafana/plugins/operato-windrose-panel && echo INSTALLED || echo MISSING"
+            )
+            if verify_check.strip() != "INSTALLED":
+                print("  ✗ Plugin install reported success but plugin directory not found")
+                print(f"  grafana-cli output: {stdout_text.strip()}")
+                return False
+            print("  ✓ operato-windrose-panel installed and verified")
+            plugin_newly_installed = True
 
     deployed_count = 0
     temp_dir = f"{home_dir}/.openhab-deploy-tmp"
@@ -423,7 +457,7 @@ def deploy_grafana(ssh, influxdb_token, project_root, home_dir, dry_run=False, r
     finally:
         scp.close()
 
-    if restart_service and deployed_count > 0:
+    if restart_service and (deployed_count > 0 or plugin_newly_installed):
         print("\nRestarting Grafana service...")
         exit_status, _, stderr_text = execute_ssh_command(ssh, "sudo systemctl restart grafana-server")
         if exit_status == 0:
@@ -448,6 +482,7 @@ def deploy_files(
         deploy_receiver_config=False,
         deploy_openhabian_conf=False,
         deploy_grafana_config=True,
+        install_grafana_plugins=True,
     ):
     """
     Deploy OpenHAB configuration files and receiver application to the server.
@@ -493,8 +528,8 @@ def deploy_files(
     # Resolve paths
     project_root = Path(__file__).parent.parent
     local_config_path = project_root / local_config_dir
-    keyfile_path = project_root / ssh_config['keyfile']
-    
+    keyfile_path = Path(os.path.expandvars(os.path.expanduser(ssh_config['keyfile'])))
+
     if not keyfile_path.exists():
         print(f"Error: SSH key file not found: {keyfile_path}")
         sys.exit(1)
@@ -518,6 +553,7 @@ def deploy_files(
         'jdbc.cfg': f'{remote_base_dir}/services/jdbc.cfg',
         'influxdb.persist': f'{remote_base_dir}/persistence/influxdb.persist',
         'influxdb.cfg': f'{remote_base_dir}/services/influxdb.cfg',
+        'services/runtime.cfg': f'{remote_base_dir}/services/runtime.cfg',
         'uicomponents_ui_page.json': '/var/lib/openhab/jsondb/uicomponents_ui_page.json',  # Will be updated with actual userdata path
     }
     deployed_count = 0
@@ -609,7 +645,7 @@ def deploy_files(
         if restart_service and deploy_openhab_config:
             print("\nWould restart OpenHAB service")
         if deploy_grafana_config:
-            deploy_grafana(None, influxdb_token, project_root, None, dry_run=True, restart_service=restart_service)
+            deploy_grafana(None, influxdb_token, project_root, None, dry_run=True, restart_service=restart_service, install_plugins=install_grafana_plugins)
         return True
 
     # Connect to server
@@ -685,6 +721,7 @@ def deploy_files(
             'jdbc.cfg': f'{actual_config_base}/services/jdbc.cfg',
             'influxdb.persist': f'{actual_config_base}/persistence/influxdb.persist',
             'influxdb.cfg': f'{actual_config_base}/services/influxdb.cfg',
+            'services/runtime.cfg': f'{actual_config_base}/services/runtime.cfg',
             'uicomponents_ui_page.json': f'{actual_userdata_base}/jsondb/uicomponents_ui_page.json',
         }
         
@@ -975,9 +1012,11 @@ def deploy_files(
                 restart_service=restart_service,
             )
 
+        grafana_ok = True
         if deploy_grafana_config:
-            deploy_grafana(ssh, influxdb_token, project_root, home_dir,
-                           dry_run=False, restart_service=restart_service)
+            grafana_ok = deploy_grafana(ssh, influxdb_token, project_root, home_dir,
+                                        dry_run=False, restart_service=restart_service,
+                                        install_plugins=install_grafana_plugins)
 
         openhab_has_failures = deploy_openhab_config and (
             openhab_failed_count > 0
@@ -985,7 +1024,7 @@ def deploy_files(
         )
         overall_ok = not openhab_has_failures and (
             not deploy_receiver or receiver_ok
-        )
+        ) and grafana_ok
 
         if overall_ok:
             if deploy_openhab_config:
@@ -1140,6 +1179,11 @@ weather-station service once as root in Step 7).
         action='store_true',
         help='Skip Grafana provisioning file and dashboard deployment'
     )
+    parser.add_argument(
+        '--skip-grafana-plugins',
+        action='store_true',
+        help='Skip Grafana plugin installation (deploy dashboard files only)'
+    )
     
     args = parser.parse_args()
     
@@ -1165,6 +1209,7 @@ weather-station service once as root in Step 7).
         deploy_receiver_config=args.receiver_config,
         deploy_openhabian_conf=args.openhab_config,
         deploy_grafana_config=not args.skip_grafana,
+        install_grafana_plugins=not args.skip_grafana_plugins,
     )
     sys.exit(0 if result else 1)
 

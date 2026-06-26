@@ -170,6 +170,7 @@ openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl status openhab
 openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart weather-station
 openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart grafana-server
 openhab-deploy ALL=(ALL) NOPASSWD: /bin/systemctl is-active grafana-server
+openhab-deploy ALL=(ALL) NOPASSWD: /usr/sbin/grafana cli plugins install operato-windrose-panel
 EOF
 sudo chmod 440 /etc/sudoers.d/openhab-deploy
 ```
