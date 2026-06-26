@@ -18,4 +18,9 @@ Items {
     WeatherStation_Voltage        : strategy = everyChange, everyHour
     WeatherStation_Light          : strategy = everyChange, everyHour
     WeatherStation_AbsoluteHumidity : strategy = everyChange, everyHour
+    WeatherStation_SoilTemperature  : strategy = everyChange, everyHour
+    WeatherStation_SoilMoisture     : strategy = everyChange, everyHour
+    WeatherStation_UV               : strategy = everyChange, everyHour
+    WeatherStation_Current          : strategy = everyChange, everyHour
+    WeatherStation_Power            : strategy = everyChange, everyHour
 }
