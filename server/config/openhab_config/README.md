@@ -39,8 +39,16 @@ The items file defines the OpenHAB items that will receive sensor data:
 - `WeatherStation_Pressure`: Pressure in hPa (Number:Pressure)
 - `WeatherStation_Altitude`: Altitude in meters (Number:Length)
 - `WeatherStation_Humidity`: Humidity in % (Number:Dimensionless)
+- `WeatherStation_AbsoluteHumidity`: Absolute humidity in g/m³ (Number:Dimensionless)
 - `WeatherStation_WindDirection`: Wind direction in degrees (Number:Angle)
 - `WeatherStation_WindSpeed`: Wind speed in km/h (Number:Speed)
+- `WeatherStation_SoilTemperature`: Soil temperature in °C from DS18B20 (Number:Temperature)
+- `WeatherStation_SoilMoisture`: Soil moisture, raw ADC 0-1023 (Number:Dimensionless)
+- `WeatherStation_Light`: Light level, raw ADS1115 counts (Number:Dimensionless)
+- `WeatherStation_UV`: UV level, raw ADS1115 counts (Number:Dimensionless)
+- `WeatherStation_Voltage`: Solar battery voltage in V via ADS1115 (Number:ElectricPotential)
+- `WeatherStation_Current`: Load current in mA via ADS1115 shunt (Number:ElectricCurrent)
+- `WeatherStation_Power`: Derived power draw in W (Number:Power)
 
 **Note**: Items use typed dimensions (e.g., `Number:Temperature`) for OpenHAB 5.0.3 unit support. Items have no channel bindings because the Python receiver updates them directly via REST API.
 

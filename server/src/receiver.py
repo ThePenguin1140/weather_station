@@ -55,8 +55,13 @@ class WeatherStationReceiver:
             'humidity': 'WeatherStation_Humidity',
             'wind_direction_deg': 'WeatherStation_WindDirection',
             'wind_speed': 'WeatherStation_WindSpeed',
-            'voltage': 'WeatherStation_Voltage',
+            'soil_temp': 'WeatherStation_SoilTemperature',
+            'soil_moisture': 'WeatherStation_SoilMoisture',
             'light': 'WeatherStation_Light',
+            'uv': 'WeatherStation_UV',
+            'voltage': 'WeatherStation_Voltage',
+            'current': 'WeatherStation_Current',
+            'power': 'WeatherStation_Power',
         })
 
         # Wind direction offset in degrees (for calibration)
@@ -123,7 +128,7 @@ class WeatherStationReceiver:
             Parsed sensor data dictionary or None if parsing fails
         """
         try:
-            SENSOR_DATA_FORMAT = "<iIHHiHH"
+            SENSOR_DATA_FORMAT = "<iIHHiiHHHHH"
             expected_size = struct.calcsize(SENSOR_DATA_FORMAT)
             if len(data_bytes) != expected_size:
                 # Check if payload is padded with zeros (common with NRF24L01 fixed 32-byte payload)
@@ -150,12 +155,14 @@ class WeatherStationReceiver:
                     if len(data_bytes) < expected_size:
                         return None
 
-            temperature, pressure_pa, humidity, wind_direction_deg, wind_speed, voltage_mv, light = struct.unpack(
+            (temperature, pressure_pa, humidity, wind_direction_deg, wind_speed,
+             soil_temperature, soil_moisture, light, uv, voltage_mv, current_ma) = struct.unpack(
                 SENSOR_DATA_FORMAT, data_bytes[:expected_size]
             )
             temperature = temperature / 100.0
             wind_speed = wind_speed / 100.0
-            
+            soil_temperature = soil_temperature / 100.0
+
             # Apply wind direction offset and wrap around 360 degrees
             wind_direction_deg = (wind_direction_deg + self.wind_direction_offset) % 360
 
@@ -180,15 +187,26 @@ class WeatherStationReceiver:
                 logger.warning(
                     f"Unusual pressure value: {pressure_pa}Pa (expected 80000-110000 Pa)"
                 )
-            
+
+            # Soil temperature: -999.0 is the Arduino error sentinel (skipped
+            # downstream by send_to_openhab). Warn on out-of-range real values.
+            if soil_temperature != -999.0 and (soil_temperature < -40.0 or soil_temperature > 80.0):
+                logger.warning(
+                    f"Unusual soil temperature value: {soil_temperature}°C (expected -40 to 80°C)"
+                )
+
             data: Dict[str, Any] = {
                 "temp": float(temperature),
                 "pressure": float(pressure_pa),
                 "humidity": float(humidity),
                 "wind_direction": int(wind_direction_deg),  # Already in degrees (0-360) from Arduino
                 "wind_speed": float(wind_speed),
-                "voltage": round(voltage_mv / 1000.0, 3),  # Convert mV → V
-                "light": int(light),                        # Raw ADC 0-1023
+                "soil_temp": float(soil_temperature),       # °C (-999.0 = sensor error)
+                "soil_moisture": int(soil_moisture),        # Raw ADC 0-1023
+                "light": int(light),                        # Raw ADS1115 counts (ch0)
+                "uv": int(uv),                              # Raw ADS1115 counts (ch1)
+                "voltage": round(voltage_mv / 1000.0, 3),   # Solar battery, mV → V (ch2)
+                "current": int(current_ma),                 # Load current, mA (ch2-ch3 / R8)
             }
 
             return data
@@ -232,6 +250,10 @@ class WeatherStationReceiver:
             rh = raw_data['humidity']
             es = 6.1078 * math.exp(17.27 * t / (t + 237.3))
             processed_data['absolute_humidity'] = round(216.7 * (rh / 100.0 * es) / (273.15 + t), 2)
+
+        # Power draw [W] from solar battery voltage (V) and load current (mA)
+        if 'voltage' in raw_data and 'current' in raw_data:
+            processed_data['power'] = round(raw_data['voltage'] * raw_data['current'] / 1000.0, 3)
 
         logger.debug(f"Processed data: {processed_data}")
         return processed_data

@@ -31,10 +31,30 @@ Arduino-based sensor transmitter for the weather station system.
 - **I2C Address**: 0x36 (fixed)
 - **Note**: Requires a magnet attached to the wind vane
 
-#### Wind Speed Sensor
-- **Signal**: Analog Pin A2
+#### Wind Speed Sensor (anemometer)
+- **Signal**: Analog Pin A2 (via R3/R4 = 10.02k/62.0k divider + C2 filter)
 - **VCC**: 5V or 3.3V (depending on sensor)
 - **GND**: Ground
+
+#### DS18B20 Soil Temperature Sensor
+- **Data (DQ)**: Digital Pin D2 (1-Wire, with 4.7k pullup / R6)
+- **VDD**: 3.3V/5V
+- **GND**: Ground
+- **Note**: Schematic labels it DS1820; DallasTemperature handles DS1820/DS18B20/DS18S20
+
+#### Soil Moisture Sensor
+- **Signal**: Analog Pin A0 (native ADC, raw 0-1023) — *verify pin against Rev 3 board*
+- **VCC**: 5V
+- **GND**: Ground
+
+#### ADS1115 4-Channel ADC (Solar Battery Case)
+- **SDA**: A4 (I2C, shared bus via J1 connector)
+- **SCL**: A5 (I2C)
+- **I2C Address**: 0x49
+- **ch0 (A0)**: Light sensor (LDR R7)
+- **ch1 (A1)**: UV sensor (LM358 amplified)
+- **ch2 (A2)**: Solar battery voltage (~3.7V)
+- **ch3 (A3)**: Post-shunt node — load current = (ch2 − ch3) / R8 (R8 = 11Ω)
 
 #### Status LED
 - **Anode**: Digital Pin 13 (via resistor)
@@ -90,10 +110,14 @@ Edit the following constants in `main.ino` if needed:
 #define CE_PIN 9              // NRF24L01 CE pin
 #define CSN_PIN 8             // NRF24L01 CSN pin
 #define LED_PIN 13            // Status LED pin
-#define WIND_SPEED_PIN A2     // Wind speed analog pin
+#define WIND_SPEED_PIN A2     // Wind speed analog pin (native ADC)
+#define SOIL_MOISTURE_PIN A0  // Soil moisture analog pin (native ADC) — verify vs board
+#define ONE_WIRE_BUS 2        // DS18B20 soil temperature 1-Wire data pin (D2)
 #define BME280_ADDRESS 0x76   // BME280 I2C address (0x76 or 0x77)
 #define AS5600_ADDRESS 0x36   // AS5600 I2C address (fixed at 0x36)
-#define TRANSMISSION_INTERVAL 5000  // Milliseconds between transmissions
+#define ADS1115_ADDRESS 0x49  // ADS1115 4-channel ADC I2C address
+#define CURRENT_SHUNT_R8 11.0 // Current-sense shunt R8 in ohms
+#define SLEEP_CYCLES 38       // 38 × 8s watchdog cycles ≈ 5 min between transmissions
 ```
 
 ### Radio Configuration
@@ -174,21 +198,27 @@ Open Serial Monitor (Tools > Serial Monitor) at 9600 baud to see debug messages:
 ## Status Indicators
 
 - **LED Blink (3 times)**: Successful initialization
-- **LED Blink (5 times)**: BME280 or AS5600 initialization failed
+- **LED Blink (5 times)**: Sensor initialization failed (BME280, AS5600, ADS1115, or DS18B20)
 - **LED Blink (10 times)**: NRF24L01 initialization failed
 - **LED Blink (2 times)**: Transmission failed after retries
 - **LED Toggle (500ms)**: Normal operation
 
 ## Data Format
 
-The transmitter sends a packed binary struct over NRF24L01:
-- `temperature` (float, Celsius)
-- `pressure` (float, Pascals)
-- `humidity` (float, percentage)
-- `wind_direction` (uint16_t, raw angle 0-4095)
-- `wind_speed` (float, km/h)
+The transmitter sends a packed binary struct over NRF24L01 (`<iIHHiiHHHHH`, 30 bytes):
+- `temperature` (int32, °C × 100) — BME280
+- `pressure` (uint32, Pascals) — BME280
+- `humidity` (uint16, %) — BME280
+- `windDirection` (uint16, degrees 0-359) — AS5600
+- `windSpeed` (int32, km/h × 100) — anemometer (A2)
+- `soilTemperature` (int32, °C × 100) — DS18B20 (D2)
+- `soilMoisture` (uint16, raw ADC 0-1023) — analog (A0)
+- `light` (uint16, raw ADS counts) — ADS1115 ch0
+- `uv` (uint16, raw ADS counts) — ADS1115 ch1
+- `voltage` (uint16, mV) — solar battery via ADS1115 ch2
+- `current` (uint16, mA) — load current via ADS1115 ch2−ch3 / R8
 
-**Note**: JSON format is only used for serial debugging output. The actual wireless transmission uses a compact binary struct to stay within the NRF24L01 32-byte payload limit.
+**Note**: JSON format is only used for serial debugging output. The actual wireless transmission uses a compact binary struct to stay within the NRF24L01 32-byte payload limit (30 of 32 bytes used).
 
 ## Power Consumption
 

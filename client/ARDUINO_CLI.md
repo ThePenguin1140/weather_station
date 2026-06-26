@@ -88,12 +88,20 @@ arduino-cli lib install "Adafruit BME280 Library"
 # Install Adafruit AS5600 Library (wind direction sensor)
 arduino-cli lib install "Adafruit AS5600"
 
+# Install Adafruit ADS1X15 (4-channel ADC: light, UV, battery voltage, current)
+arduino-cli lib install "Adafruit ADS1X15"
+
+# Install DallasTemperature + OneWire (DS18B20 soil temperature sensor)
+arduino-cli lib install "DallasTemperature"
+arduino-cli lib install "OneWire"
+
 # Install ArduinoJson (JSON serialization)
 arduino-cli lib install "ArduinoJson"
 
-# Note: Adafruit BME280 and AS5600 libraries will automatically install dependencies:
+# Note: Adafruit BME280, AS5600 and ADS1X15 libraries will automatically install dependencies:
 # - Adafruit Unified Sensor
 # - Adafruit BusIO
+# Note: DallasTemperature depends on OneWire (installed above)
 ```
 
 ### List Installed Libraries
@@ -252,6 +260,9 @@ arduino-cli board list
 arduino-cli lib install "RF24"
 arduino-cli lib install "Adafruit BME280 Library"
 arduino-cli lib install "Adafruit AS5600"
+arduino-cli lib install "Adafruit ADS1X15"
+arduino-cli lib install "DallasTemperature"
+arduino-cli lib install "OneWire"
 arduino-cli lib install "ArduinoJson"
 
 # 3. Compile sketch
