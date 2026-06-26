@@ -43,7 +43,7 @@ Arduino-based sensor transmitter for the weather station system.
 - **Note**: Schematic labels it DS1820; DallasTemperature handles DS1820/DS18B20/DS18S20
 
 #### Soil Moisture Sensor
-- **Signal**: Analog Pin A0 (native ADC, raw 0-1023) — *verify pin against Rev 3 board*
+- **Signal**: Analog Pin A3 (native ADC, raw 0-1023)
 - **VCC**: 5V
 - **GND**: Ground
 
@@ -111,7 +111,7 @@ Edit the following constants in `main.ino` if needed:
 #define CSN_PIN 8             // NRF24L01 CSN pin
 #define LED_PIN 13            // Status LED pin
 #define WIND_SPEED_PIN A2     // Wind speed analog pin (native ADC)
-#define SOIL_MOISTURE_PIN A0  // Soil moisture analog pin (native ADC) — verify vs board
+#define SOIL_MOISTURE_PIN A3  // Soil moisture analog pin (native ADC)
 #define ONE_WIRE_BUS 2        // DS18B20 soil temperature 1-Wire data pin (D2)
 #define BME280_ADDRESS 0x76   // BME280 I2C address (0x76 or 0x77)
 #define AS5600_ADDRESS 0x36   // AS5600 I2C address (fixed at 0x36)

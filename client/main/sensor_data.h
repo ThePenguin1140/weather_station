@@ -11,7 +11,7 @@
 //   windDirection    uint16  AS5600            (degrees 0-359)
 //   windSpeed        int32   anemometer (A2)   (km/h × 100)
 //   soilTemperature  int32   DS18B20 (1-Wire)  (°C × 100)
-//   soilMoisture     uint16  analog (A0)       (raw ADC 0-1023)
+//   soilMoisture     uint16  analog (A3)       (raw ADC 0-1023)
 //   light            uint16  ADS1115 ch0       (raw counts)
 //   uv               uint16  ADS1115 ch1       (raw counts)
 //   voltage          uint16  ADS1115 ch2       (solar battery, mV)

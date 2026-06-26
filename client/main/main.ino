@@ -28,10 +28,10 @@
 
 // Analog Sensor Pins (Arduino native ADC)
 #define WIND_SPEED_PIN A2
-// Soil moisture on a native analog pin. A0/A1 were freed when the battery
-// monitor and light sensor moved to the ADS1115 in the Solar Battery Case.
-// NOTE: confirm this pin against the Rev 3 board before deploying.
-#define SOIL_MOISTURE_PIN A0
+// Soil moisture on native analog pin A3 (per Rev 3 schematic, Moisture Sensor
+// net 13). A0/A1 were freed when the battery monitor and light sensor moved to
+// the ADS1115 in the Solar Battery Case.
+#define SOIL_MOISTURE_PIN A3
 
 // DS18B20 soil temperature sensor on the 1-Wire bus (digital pin D2)
 #define ONE_WIRE_BUS 2
