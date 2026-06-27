@@ -56,9 +56,11 @@
 // Debug flag: Set to false to disable clock prescaler for serial debugging
 // When ENABLE_POWER_SAVING is false, serial communication will work at 9600 baud
 // When true, clock is reduced to 2MHz (power savings) and serial is completely disabled
-#define ENABLE_POWER_SAVING true
+#define ENABLE_POWER_SAVING false
 
-// Serial debugging macros - conditionally compile Serial operations
+// USART baud divisor is computed from compile-time F_CPU (16MHz) but setup()
+// divides the clock by 4, so request 4× the desired PC-side baud rate.
+#define DEBUG_BAUD 38400
 // When ENABLE_POWER_SAVING is true, these macros expand to nothing (zero overhead)
 // When false, they expand to Serial.print/println/begin calls
 #if ENABLE_POWER_SAVING
@@ -113,48 +115,17 @@ bool adsInitialized = false;
 bool soilTempInitialized = false;
 
 void setup() {
-  // Initialize Serial for debugging
-  DEBUG_SERIAL_BEGIN(9600);
-
-  // Lower clock frequency for power savings (divide by 4 = 4MHz from 16MHz)
-  // 4MHz improves I2C/SPI reliability over 2MHz while still saving power
+  // 4MHz improves I2C/SPI reliability; Serial must init after this prescaler.
   noInterrupts();
-  CLKPR = (1 << CLKPCE);  // Enable clock prescaler change
-  CLKPR = (1 << CLKPS1);  // Divide by 4 (4MHz)
+  CLKPR = (1 << CLKPCE);
+  CLKPR = (1 << CLKPS1);
   interrupts();
-  
-  // Calculate frequency based on prescaler
-  // Prescaler divides by 2^(CLKPS value)
-  unsigned long baseFreq = F_CPU;  // Use compile-time F_CPU constant
-  unsigned long divider = 1UL << (CLKPR & 0x0F);  // 2^CLKPS bits
-  unsigned long actualFreq = baseFreq / divider;
-  
-  DEBUG_PRINT(F("Base CPU frequency (F_CPU): "));
-  DEBUG_PRINT(baseFreq);
-  DEBUG_PRINT(F(" Hz ("));
-  if (baseFreq >= 1000000) {
-    DEBUG_PRINT(baseFreq / 1000000.0, 1);
-    DEBUG_PRINT(F(" MHz)"));
-  } else if (baseFreq >= 1000) {
-    DEBUG_PRINT(baseFreq / 1000.0, 1);
-    DEBUG_PRINT(F(" kHz)"));
-  } else {
-    DEBUG_PRINT(F(" Hz)"));
-  }
-  DEBUG_PRINT(F(" | Prescaler: 1/"));
-  DEBUG_PRINT(divider);
-  DEBUG_PRINT(F(" | Actual frequency: "));
-  DEBUG_PRINT(actualFreq);
-  DEBUG_PRINT(F(" Hz ("));
-  if (actualFreq >= 1000000) {
-    DEBUG_PRINT(actualFreq / 1000000.0, 1);
-    DEBUG_PRINTLN(F(" MHz)"));
-  } else if (actualFreq >= 1000) {
-    DEBUG_PRINT(actualFreq / 1000.0, 1);
-    DEBUG_PRINTLN(F(" kHz)"));
-  } else {
-    DEBUG_PRINTLN(F(" Hz)"));
-  }
+
+  DEBUG_SERIAL_BEGIN(DEBUG_BAUD);
+
+#if !ENABLE_POWER_SAVING
+  DEBUG_PRINTLN(F("Debug mode: watchdog sleep disabled, serial enabled"));
+#endif
 
   // Initialize Status LED
   pinMode(LED_PIN, OUTPUT);
