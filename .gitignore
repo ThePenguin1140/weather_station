@@ -9,8 +9,10 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.python-version
 env/
 venv/
+.venv-wsl/
 ENV/
 build/
 dist/
