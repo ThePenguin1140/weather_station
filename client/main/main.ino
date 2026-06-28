@@ -36,6 +36,19 @@
 // DS18B20 soil temperature sensor on the 1-Wire bus (digital pin D2)
 #define ONE_WIRE_BUS 2
 
+// Switched sensor power rails (Rev 3 schematic).
+// D6 → R11(1k) → base of Q2 (BC517) → JP2 rail (R12 10k base pull-down).
+// D7 → R9(1k)  → base of Q1 (BC517) → JP1 rail (R10 10k base pull-down).
+// HIGH on the MCU pin saturates the Darlington and powers the rail; LOW lets
+// the pull-down hold the base at 0 V so the rail collapses for sleep.
+#define POWER_SWITCH_JP1_PIN 7
+#define POWER_SWITCH_JP2_PIN 6
+
+// Settling time after powering the switched rails back up before talking to
+// any sensor on them (ms). BME280 needs ~2 ms to boot; ADS1115 ~25 µs; the
+// AS5600 power-on sequence is ~1 ms — 100 ms is a comfortable margin.
+#define SENSOR_POWERUP_DELAY_MS 100
+
 // BME280 I2C Address (usually 0x76 or 0x77)
 #define BME280_ADDRESS 0x76
 
@@ -160,6 +173,12 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 
+  // Initialize switched sensor power rails (start ON so the I2C / 1-Wire /
+  // analog sensors are powered for the begin() calls below).
+  pinMode(POWER_SWITCH_JP1_PIN, OUTPUT);
+  pinMode(POWER_SWITCH_JP2_PIN, OUTPUT);
+  sensorPowerOn();
+
   // Initialize NRF24L01
   if (!radio.begin()) {
     DEBUG_PRINTLN(F("NRF24L01 initialization failed!"));
@@ -273,6 +292,43 @@ void setup() {
   blinkLED(3);  // Success indicator
 }
 
+void sensorPowerOn() {
+  digitalWrite(POWER_SWITCH_JP1_PIN, HIGH);
+  digitalWrite(POWER_SWITCH_JP2_PIN, HIGH);
+  delay(SENSOR_POWERUP_DELAY_MS);
+}
+
+void sensorPowerOff() {
+  digitalWrite(POWER_SWITCH_JP1_PIN, LOW);
+  digitalWrite(POWER_SWITCH_JP2_PIN, LOW);
+}
+
+// I2C peripherals lose their config when the switched rails drop, so re-arm
+// MODE_FORCED / LPM3 / GAIN_TWOTHIRDS after each wake. Sensors that failed
+// their initial setup() probe are skipped — same policy as readSensors().
+void reinitSwitchedSensors() {
+  if (bmeInitialized) {
+    bme.begin(BME280_ADDRESS);
+    bme.setSampling(Adafruit_BME280::MODE_FORCED,
+                    Adafruit_BME280::SAMPLING_X2,
+                    Adafruit_BME280::SAMPLING_X16,
+                    Adafruit_BME280::SAMPLING_X1,
+                    Adafruit_BME280::FILTER_X16,
+                    Adafruit_BME280::STANDBY_MS_500);
+  }
+  if (as5600Initialized) {
+    as5600.begin(AS5600_ADDRESS);
+    as5600.setPowerMode(AS5600_POWER_MODE_LPM3);
+  }
+  if (adsInitialized) {
+    ads.begin(ADS1115_ADDRESS);
+    ads.setGain(GAIN_TWOTHIRDS);
+  }
+  if (soilTempInitialized) {
+    soilTempSensor.begin();
+  }
+}
+
 void sleepWatchdog(uint8_t cycles) {
   // Configure WDT: interrupt mode only, 8-second timeout
   MCUSR &= ~(1 << WDRF);
@@ -293,8 +349,11 @@ void sleepWatchdog(uint8_t cycles) {
 }
 
 void loop() {
+  sensorPowerOn();
+  reinitSwitchedSensors();
   SensorData data = readSensors();
   transmitData(data);
+  sensorPowerOff();
   sleepWatchdog(SLEEP_CYCLES);
 }
 
