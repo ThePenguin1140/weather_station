@@ -130,45 +130,11 @@ void setup() {
   // Initialize Serial for debugging
   DEBUG_SERIAL_BEGIN(9600);
 
-  // Lower clock frequency for power savings (divide by 4 = 4MHz from 16MHz)
-  // 4MHz improves I2C/SPI reliability over 2MHz while still saving power
-  noInterrupts();
-  CLKPR = (1 << CLKPCE);  // Enable clock prescaler change
-  CLKPR = (1 << CLKPS1);  // Divide by 4 (4MHz)
-  interrupts();
-  
-  // Calculate frequency based on prescaler
-  // Prescaler divides by 2^(CLKPS value)
-  unsigned long baseFreq = F_CPU;  // Use compile-time F_CPU constant
-  unsigned long divider = 1UL << (CLKPR & 0x0F);  // 2^CLKPS bits
-  unsigned long actualFreq = baseFreq / divider;
-  
-  DEBUG_PRINT(F("Base CPU frequency (F_CPU): "));
-  DEBUG_PRINT(baseFreq);
-  DEBUG_PRINT(F(" Hz ("));
-  if (baseFreq >= 1000000) {
-    DEBUG_PRINT(baseFreq / 1000000.0, 1);
-    DEBUG_PRINT(F(" MHz)"));
-  } else if (baseFreq >= 1000) {
-    DEBUG_PRINT(baseFreq / 1000.0, 1);
-    DEBUG_PRINT(F(" kHz)"));
-  } else {
-    DEBUG_PRINT(F(" Hz)"));
-  }
-  DEBUG_PRINT(F(" | Prescaler: 1/"));
-  DEBUG_PRINT(divider);
-  DEBUG_PRINT(F(" | Actual frequency: "));
-  DEBUG_PRINT(actualFreq);
-  DEBUG_PRINT(F(" Hz ("));
-  if (actualFreq >= 1000000) {
-    DEBUG_PRINT(actualFreq / 1000000.0, 1);
-    DEBUG_PRINTLN(F(" MHz)"));
-  } else if (actualFreq >= 1000) {
-    DEBUG_PRINT(actualFreq / 1000.0, 1);
-    DEBUG_PRINTLN(F(" kHz)"));
-  } else {
-    DEBUG_PRINTLN(F(" Hz)"));
-  }
+  // Run at full 16 MHz — a CLKPR prescaler breaks OneWire timing (every
+  // delayMicroseconds() in OneWire is calibrated against compile-time F_CPU,
+  // so a /4 prescaler makes every reset/read/write slot 4× too long and
+  // violates the DS18B20 protocol). Power saving comes from PWR_DOWN sleep
+  // between transmissions, not from running slow while awake.
 
   // Initialize Status LED
   pinMode(LED_PIN, OUTPUT);
