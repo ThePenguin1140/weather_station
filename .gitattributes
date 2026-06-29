@@ -17,4 +17,3 @@
 *.jpg  binary
 *.jpeg binary
 *.pdf  binary
-reference_material/weather_station filter=lfs diff=lfs merge=lfs -text
