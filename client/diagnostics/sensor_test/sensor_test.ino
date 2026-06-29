@@ -7,7 +7,7 @@
  *   1) I2C scan
  *   2) Try BME280  @ 0x76 (then 0x77 fallback)
  *   3) Try AS5600  @ 0x36
- *   4) Try ADS1115 @ 0x48 (then 0x49 fallback)
+ *   4) Try ADS1115 @ 0x48 (Rev 3 board, ADDR→GND)
  *   5) 1-Wire scan on D2 — list ROM IDs, decode family code
  *   6) DallasTemperature.begin() and confirm DS18B20 count
  *   7) Loop reading whatever initialized
@@ -26,8 +26,7 @@
 #define BME280_PRIMARY   0x76
 #define BME280_FALLBACK  0x77
 #define AS5600_ADDRESS   0x36
-#define ADS1115_PRIMARY  0x48
-#define ADS1115_FALLBACK 0x49
+#define ADS1115_ADDRESS  0x48
 
 // DS18B20 soil temperature on the 1-Wire bus (D2, matches main.ino).
 #define ONE_WIRE_BUS 2
@@ -164,10 +163,11 @@ void setup() {
   }
 
   Serial.println(F("\n[ADS1115]"));
-  adsOk = tryAds(ADS1115_PRIMARY);
-  if (!adsOk) { adsOk = tryAds(ADS1115_FALLBACK); if (adsOk) adsAddr = ADS1115_FALLBACK; }
-  else { adsAddr = ADS1115_PRIMARY; }
-  if (adsOk) ads.setGain(GAIN_TWOTHIRDS);
+  adsOk = tryAds(ADS1115_ADDRESS);
+  if (adsOk) {
+    adsAddr = ADS1115_ADDRESS;
+    ads.setGain(GAIN_TWOTHIRDS);
+  }
 
   Serial.println(F("\n[1-Wire]"));
   dsCount = scanOneWire();
