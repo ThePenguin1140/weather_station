@@ -50,7 +50,7 @@ Arduino-based sensor transmitter for the weather station system.
 #### ADS1115 4-Channel ADC (Solar Battery Case)
 - **SDA**: A4 (I2C, shared bus via J1 connector)
 - **SCL**: A5 (I2C)
-- **I2C Address**: 0x49
+- **I2C Address**: 0x48 (Rev 3 board ties ADDR to GND)
 - **ch0 (A0)**: Light sensor (LDR R7)
 - **ch1 (A1)**: UV sensor (LM358 amplified)
 - **ch2 (A2)**: Solar battery voltage (~3.7V)
@@ -115,7 +115,7 @@ Edit the following constants in `main.ino` if needed:
 #define ONE_WIRE_BUS 2        // DS18B20 soil temperature 1-Wire data pin (D2)
 #define BME280_ADDRESS 0x76   // BME280 I2C address (0x76 or 0x77)
 #define AS5600_ADDRESS 0x36   // AS5600 I2C address (fixed at 0x36)
-#define ADS1115_ADDRESS 0x49  // ADS1115 4-channel ADC I2C address
+#define ADS1115_ADDRESS 0x48  // ADS1115 4-channel ADC I2C address (ADDR→GND on Rev 3)
 #define CURRENT_SHUNT_R8 11.0 // Current-sense shunt R8 in ohms
 #define SLEEP_CYCLES 38       // 38 × 8s watchdog cycles ≈ 5 min between transmissions
 ```

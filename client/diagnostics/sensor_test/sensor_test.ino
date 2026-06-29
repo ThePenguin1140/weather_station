@@ -6,7 +6,7 @@
  *   1) I2C scan
  *   2) Try BME280  @ 0x76 (then 0x77 fallback)
  *   3) Try AS5600  @ 0x36
- *   4) Try ADS1115 @ 0x49 (then 0x48 fallback)
+ *   4) Try ADS1115 @ 0x48 (then 0x49 fallback)
  *   5) Loop reading whatever initialized
  *
  * If any one device begins here but not in main.ino, the difference
@@ -21,8 +21,8 @@
 #define BME280_PRIMARY   0x76
 #define BME280_FALLBACK  0x77
 #define AS5600_ADDRESS   0x36
-#define ADS1115_PRIMARY  0x49
-#define ADS1115_FALLBACK 0x48
+#define ADS1115_PRIMARY  0x48
+#define ADS1115_FALLBACK 0x49
 
 Adafruit_BME280  bme;
 Adafruit_AS5600  as5600;

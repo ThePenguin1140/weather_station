@@ -7,7 +7,7 @@
  *
  * Expected devices for this project:
  *   0x36  AS5600   (wind direction)
- *   0x49  ADS1115  (light/UV/battery/current)
+ *   0x48  ADS1115  (light/UV/battery/current — Rev 3 board, ADDR→GND)
  *   0x76  BME280   (T/P/H)
  *
  * Upload, then open serial monitor at 9600 baud.

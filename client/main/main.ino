@@ -54,10 +54,11 @@
 
 #define AS5600_ADDRESS 0x36
 
-// ADS1115 4-channel ADC (Solar Battery Case), I2C address 0x49.
+// ADS1115 4-channel ADC (Solar Battery Case), I2C address 0x48 — the
+// Rev 3 board ties the ADDR pin to GND, not VDD as originally intended.
 // Channel assignment: ch0 = light (LDR), ch1 = UV, ch2 = solar battery (+),
 // ch3 = post-shunt node. Load current = (ch2 - ch3) / R8.
-#define ADS1115_ADDRESS 0x49
+#define ADS1115_ADDRESS 0x48
 #define ADS_CH_LIGHT 0
 #define ADS_CH_UV 1
 #define ADS_CH_BATTERY 2
