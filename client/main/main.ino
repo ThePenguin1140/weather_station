@@ -70,9 +70,11 @@
 // Debug flag: Set to false to disable clock prescaler for serial debugging
 // When ENABLE_POWER_SAVING is false, serial communication will work at 9600 baud
 // When true, clock is reduced to 2MHz (power savings) and serial is completely disabled
-#define ENABLE_POWER_SAVING true
+#define ENABLE_POWER_SAVING false
 
-// Serial debugging macros - conditionally compile Serial operations
+// USART baud divisor is computed from compile-time F_CPU (16MHz) but setup()
+// divides the clock by 4, so request 4× the desired PC-side baud rate.
+#define DEBUG_BAUD 38400
 // When ENABLE_POWER_SAVING is true, these macros expand to nothing (zero overhead)
 // When false, they expand to Serial.print/println/begin calls
 #if ENABLE_POWER_SAVING
@@ -127,14 +129,16 @@ bool adsInitialized = false;
 bool soilTempInitialized = false;
 
 void setup() {
-  // Initialize Serial for debugging
-  DEBUG_SERIAL_BEGIN(9600);
-
   // Run at full 16 MHz — a CLKPR prescaler breaks OneWire timing (every
   // delayMicroseconds() in OneWire is calibrated against compile-time F_CPU,
   // so a /4 prescaler makes every reset/read/write slot 4× too long and
   // violates the DS18B20 protocol). Power saving comes from PWR_DOWN sleep
   // between transmissions, not from running slow while awake.
+  DEBUG_SERIAL_BEGIN(DEBUG_BAUD);
+
+#if !ENABLE_POWER_SAVING
+  DEBUG_PRINTLN(F("Debug mode: watchdog sleep disabled, serial enabled"));
+#endif
 
   // Initialize Status LED
   pinMode(LED_PIN, OUTPUT);

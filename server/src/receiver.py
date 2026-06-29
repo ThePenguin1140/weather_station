@@ -53,6 +53,7 @@ class WeatherStationReceiver:
             'temp': 'WeatherStation_Temperature',
             'pressure': 'WeatherStation_Pressure',
             'humidity': 'WeatherStation_Humidity',
+            'absolute_humidity': 'WeatherStation_AbsoluteHumidity',
             'wind_direction_deg': 'WeatherStation_WindDirection',
             'wind_speed': 'WeatherStation_WindSpeed',
             'soil_temp': 'WeatherStation_SoilTemperature',
@@ -231,10 +232,12 @@ class WeatherStationReceiver:
         """
         processed_data = raw_data.copy()
         
-        # Calculate pressure in hPa from Pascals
+        # BME280 reports pressure in Pascals, but the OpenHAB item
+        # (Number:Pressure "[%.1f hPa]") and the Grafana "Pressure" panels
+        # expect hectopascals. Convert in place so the value sent to OpenHAB
+        # (and persisted to InfluxDB) is in hPa, not raw Pa (~101325).
         if 'pressure' in raw_data and raw_data['pressure'] != -999.0:
-            pressure_hpa = self.calculate_pressure_hpa(raw_data['pressure'])
-            processed_data['pressure_hpa'] = pressure_hpa
+            processed_data['pressure'] = self.calculate_pressure_hpa(raw_data['pressure'])
         
         # Wind direction is already in degrees (0-360) from Arduino, no conversion needed
         # Just add it as wind_direction_deg for OpenHAB compatibility

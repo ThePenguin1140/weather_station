@@ -103,12 +103,10 @@ Edit `src/config.json`:
   "radio_csn_pin": 0,
   "radio_channel": 76,
   "openhab_url": "http://localhost:8080",
-  "openhab_items": {
-    "temp": "WeatherStation_Temperature",
-    "pressure": "WeatherStation_Pressure",
-    "altitude": "WeatherStation_Altitude",
-    "wind_speed": "WeatherStation_WindSpeed"
-  }
+  "openhab_api_token": "PASTE_OPENHAB_API_TOKEN",
+  "influxdb_token": "PASTE_INFLUXDB_TOKEN",
+  "influxdb_org": "openhab",
+  "influxdb_bucket": "weatherstation"
 }
 ```
 
@@ -117,7 +115,14 @@ Edit `src/config.json`:
 - `radio_csn_pin`: GPIO pin for NRF24L01 CSN (default: 0, which is CE0/GPIO 8)
 - `radio_channel`: Radio channel (0-125, must match transmitter)
 - `openhab_url`: OpenHAB REST API URL
-- `openhab_items`: Mapping of sensor keys to OpenHAB item names
+- `openhab_api_token`: Bearer token for the OpenHAB REST API
+- `influxdb_token` / `influxdb_org` / `influxdb_bucket`: used by `backfill_influxdb.py` and `deploy_openhab.py`
+- `openhab_items` *(optional)*: Mapping of sensor keys to OpenHAB item names.
+  Omit it to use the receiver's built-in mapping, which already covers **all**
+  sensors (temperature, pressure, humidity, absolute humidity, wind direction,
+  wind speed, soil temp/moisture, light, UV, voltage, current, power). If you
+  set it, you **override** that default entirely, so list every sensor you want
+  forwarded — a partial map silently drops the rest.
 
 ### 2. Configure OpenHAB
 
