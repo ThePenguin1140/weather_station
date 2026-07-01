@@ -473,6 +473,7 @@ def deploy_files(
     local_config_dir,
     remote_base_dir="/etc/openhab",
     restart_service=True,
+    restart_openhab=None,
     dry_run=False,
     host="server-deploy",
     deploy_receiver=True,
@@ -499,7 +500,9 @@ def deploy_files(
         ssh_config_path: Path to SSH config file
         local_config_dir: Local directory containing config files
         remote_base_dir: Remote OpenHAB configuration directory
-        restart_service: Whether to restart OpenHAB service after deployment
+        restart_service: Whether to restart receiver and Grafana services after deployment
+        restart_openhab: Whether to restart OpenHAB after config deployment. Defaults to
+            restart_service when not set explicitly.
         dry_run: If True, only print what would be done without actually doing it
         host: SSH config host to use (default: 'server-deploy')
         deploy_receiver: Whether to deploy receiver files and restart the service
@@ -559,6 +562,9 @@ def deploy_files(
     deployed_count = 0
     openhab_failed_count = 0
     openhabian_conf_failed = False
+
+    if restart_openhab is None:
+        restart_openhab = restart_service
 
     if dry_run:
         print("DRY RUN - No files will be deployed")
@@ -642,8 +648,10 @@ def deploy_files(
                     f"  {openhabian_local_path} -> $HOME/openhabian.conf "
                     "(LOCAL FILE NOT FOUND)"
                 )
-        if restart_service and deploy_openhab_config:
+        if restart_openhab and deploy_openhab_config:
             print("\nWould restart OpenHAB service")
+        elif deploy_openhab_config:
+            print("\nWould skip OpenHAB restart (config hot-reload)")
         if deploy_grafana_config:
             deploy_grafana(None, influxdb_token, project_root, None, dry_run=True, restart_service=restart_service, install_plugins=install_grafana_plugins)
         return True
@@ -869,7 +877,7 @@ def deploy_files(
                 scp.close()
         
         # Restart OpenHAB service (passwordless sudo via sudoers configuration)
-        if deploy_openhab_config and restart_service and deployed_count > 0:
+        if deploy_openhab_config and restart_openhab and deployed_count > 0:
             print("\nRestarting OpenHAB service...")
             
             # Check if OpenHAB is currently starting up (to avoid rapid restarts)
@@ -1029,6 +1037,11 @@ def deploy_files(
         if overall_ok:
             if deploy_openhab_config:
                 print(f"\n✓ Deployment complete! ({deployed_count} OpenHAB files deployed)")
+                if not restart_openhab:
+                    print(
+                        "  OpenHAB restart skipped — config changes are picked up via "
+                        "file watcher (use --restart-openhab if a full restart is needed)"
+                    )
             else:
                 print("\n✓ Deployment complete!")
             if deploy_receiver:
@@ -1084,11 +1097,14 @@ Examples:
   # Dry run (see what would be done)
   python deploy_openhab.py --dry-run
   
-  # Deploy without restarting OpenHAB service
+  # Deploy without restarting any services
   python deploy_openhab.py --no-restart
   
-  # Deploy only OpenHAB config (skip receiver deployment)
+  # Deploy only OpenHAB config (skip receiver; OpenHAB restart skipped by default)
   python deploy_openhab.py --skip-receiver
+  
+  # Deploy OpenHAB config and force a full OpenHAB restart
+  python deploy_openhab.py --skip-receiver --restart-openhab
   
   # Deploy only receiver (skip OpenHAB config files and OpenHAB restart)
   python deploy_openhab.py --skip-openhab
