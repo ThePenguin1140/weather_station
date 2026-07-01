@@ -1,6 +1,6 @@
 /*
  * Weather Station Sensor Transmitter
- * Arduino Nano with NRF24L01, BME280, AS5600, DS18B20, ADS1115,
+ * Arduino Nano with NRF24L01, BME280, AS5600, DS18B20, I2C ADC (ADS1115 or PCF8591),
  * wind-speed anemometer and soil-moisture sensor
  *
  * Reads sensor data and transmits via NRF24L01 wireless module
@@ -12,12 +12,12 @@
 #include <Wire.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_AS5600.h>
-#include <Adafruit_ADS1X15.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include "sensor_data.h"
+#include "i2c_adc.h"
 
 // NRF24L01 Pin Configuration
 #define CE_PIN 9
@@ -30,7 +30,7 @@
 #define WIND_SPEED_PIN A2
 // Soil moisture on native analog pin A3 (per Rev 3 schematic, Moisture Sensor
 // net 13). A0/A1 were freed when the battery monitor and light sensor moved to
-// the ADS1115 in the Solar Battery Case.
+// the I2C ADC in the Solar Battery Case.
 #define SOIL_MOISTURE_PIN A3
 
 // DS18B20 soil temperature sensor on the 1-Wire bus (digital pin D2)
@@ -54,27 +54,17 @@
 
 #define AS5600_ADDRESS 0x36
 
-// ADS1115 4-channel ADC (Solar Battery Case), I2C address 0x48 — the
-// Rev 3 board ties the ADDR pin to GND, not VDD as originally intended.
-// Channel assignment: ch0 = light (LDR), ch1 = UV, ch2 = solar battery (+),
-// ch3 = post-shunt node. Load current = (ch2 - ch3) / R8.
-#define ADS1115_ADDRESS 0x48
-#define ADS_CH_LIGHT 0
-#define ADS_CH_UV 1
-#define ADS_CH_BATTERY 2
-#define ADS_CH_SHUNT 3
+// 4-channel I2C ADC (Solar Battery Case) @ 0x48 — ADS1115 or PCF8591 clone.
+// Rev 3 ties ADDR to GND. ch0 = light (LDR), ch1 = UV, ch2 = solar battery (+),
+// ch3 = post-shunt node. Load current = (ch2 - ch3) / R8 (software delta on PCF8591).
 // Current-sense shunt R8 in the Solar Battery Case (ohms).
 // Ig = (V_ch2 - V_ch3) / R8  (see project current-draw calculation).
 #define CURRENT_SHUNT_R8 11.0
 
-// Debug flag: Set to false to disable clock prescaler for serial debugging
-// When ENABLE_POWER_SAVING is false, serial communication will work at 9600 baud
-// When true, clock is reduced to 2MHz (power savings) and serial is completely disabled
+// When ENABLE_POWER_SAVING is true, serial is disabled entirely.
 #define ENABLE_POWER_SAVING false
 
-// USART baud divisor is computed from compile-time F_CPU (16MHz) but setup()
-// divides the clock by 4, so request 4× the desired PC-side baud rate.
-#define DEBUG_BAUD 38400
+#define DEBUG_BAUD 9600
 // When ENABLE_POWER_SAVING is true, these macros expand to nothing (zero overhead)
 // When false, they expand to Serial.print/println/begin calls
 #if ENABLE_POWER_SAVING
@@ -108,8 +98,8 @@ ISR(WDT_vect) {
 #define WIND_SPEED_KOR 80.0            // Calibration factor for km/h
 #define WIND_SPEED_VIN_REF 5.0         // Reference voltage (5V for Arduino Nano)
 
-// Battery voltage and load current are read via the ADS1115 in the Solar
-// Battery Case (see ADS1115 channel defines above), not a native ADC divider.
+// Battery voltage and load current are read via the I2C ADC in the Solar
+// Battery Case (see i2c_adc.h), not a native ADC divider.
 
 // Radio Configuration
 const byte address[6] = "00001";  // Pipe address for communication
@@ -118,14 +108,13 @@ const byte address[6] = "00001";  // Pipe address for communication
 RF24 radio(CE_PIN, CSN_PIN);
 Adafruit_BME280 bme;
 Adafruit_AS5600 as5600;
-Adafruit_ADS1115 ads;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature soilTempSensor(&oneWire);
 
 // Sensor initialization status (tracks whether begin() succeeded in setup)
 bool bmeInitialized = false;
 bool as5600Initialized = false;
-bool adsInitialized = false;
+bool adcInitialized = false;
 bool soilTempInitialized = false;
 
 void setup() {
@@ -221,19 +210,20 @@ void setup() {
 
   delay(ONE_SECOND);
 
-  DEBUG_PRINTLN(F("Starting ADS1115 initialization..."));
+  DEBUG_PRINTLN(F("Starting I2C ADC initialization..."));
 
-  // Initialize ADS1115 (light, UV, battery voltage and current shunt)
-  if (!ads.begin(ADS1115_ADDRESS)) {
-    DEBUG_PRINTLN(F("ADS1115 initialization failed! Check wiring and I2C address."));
+  // Auto-detect ADS1115 vs PCF8591 (see diagnostics/ads_probe_wire/README.md)
+  if (!adcBegin(ADC_I2C_ADDRESS)) {
+    DEBUG_PRINTLN(F("I2C ADC initialization failed! Check wiring and I2C address."));
     blinkLED(5);  // Medium blink indicates sensor error
-    adsInitialized = false;
+    adcInitialized = false;
   } else {
-    DEBUG_PRINTLN(F("ADS1115 initialized successfully"));
-    adsInitialized = true;
-    // GAIN_TWOTHIRDS: ±6.144V full scale, suitable for the ~3.7V solar
-    // battery and 5V-referenced light/UV signals.
-    ads.setGain(GAIN_TWOTHIRDS);
+    adcInitialized = true;
+    if (adcChipType() == ADC_ADS1115) {
+      DEBUG_PRINTLN(F("I2C ADC: ADS1115"));
+    } else {
+      DEBUG_PRINTLN(F("I2C ADC: PCF8591 (8-bit clone)"));
+    }
   }
 
   delay(ONE_SECOND);
@@ -275,8 +265,9 @@ void sensorPowerOff() {
 }
 
 // I2C peripherals lose their config when the switched rails drop, so re-arm
-// MODE_FORCED / LPM3 / GAIN_TWOTHIRDS after each wake. Sensors that failed
-// their initial setup() probe are skipped — same policy as readSensors().
+// MODE_FORCED / LPM3 after each wake. The Wire-based ADC needs no re-init
+// (PCF8591 is stateless; ADS1115 config is written per read). Sensors that
+// failed their initial setup() probe are skipped — same policy as readSensors().
 void reinitSwitchedSensors() {
   if (bmeInitialized) {
     bme.begin(BME280_ADDRESS);
@@ -290,10 +281,6 @@ void reinitSwitchedSensors() {
   if (as5600Initialized) {
     as5600.begin(AS5600_ADDRESS);
     as5600.setPowerMode(AS5600_POWER_MODE_LPM3);
-  }
-  if (adsInitialized) {
-    ads.begin(ADS1115_ADDRESS);
-    ads.setGain(GAIN_TWOTHIRDS);
   }
   if (soilTempInitialized) {
     soilTempSensor.begin();
@@ -385,29 +372,21 @@ SensorData readSensors() {
   // Read Soil Moisture (native analog pin) - raw ADC value (0-1023)
   data.soilMoisture = (uint16_t)analogRead(SOIL_MOISTURE_PIN);
 
-  // Read ADS1115 channels (light, UV, solar battery voltage, current shunt)
-  if (adsInitialized) {
-    // Light (ch0) and UV (ch1) as raw single-ended counts (clamp negatives)
-    int16_t lightRaw = ads.readADC_SingleEnded(ADS_CH_LIGHT);
-    int16_t uvRaw = ads.readADC_SingleEnded(ADS_CH_UV);
-    data.light = (uint16_t)constrain(lightRaw, 0, 32767);
-    data.uv = (uint16_t)constrain(uvRaw, 0, 32767);
-
-    // Solar battery voltage (ch2) in millivolts
-    float batteryV = ads.computeVolts(ads.readADC_SingleEnded(ADS_CH_BATTERY));
-    data.voltage = (uint16_t)constrain(batteryV * 1000.0f, 0, 65535);
-
-    // Load current from the shunt: Ig = (V_ch2 - V_ch3) / R8.
-    // Read differentially across ch2-ch3 for better small-signal accuracy.
-    float shuntV = ads.computeVolts(ads.readADC_Differential_2_3());
-    float currentA = shuntV / CURRENT_SHUNT_R8;
-    data.current = (uint16_t)constrain(currentA * 1000.0f, 0, 65535);
+  // Read I2C ADC channels (light, UV, solar battery voltage, current shunt)
+  if (adcInitialized) {
+    if (!adcReadSensors(data.light, data.uv, data.voltage, data.current, CURRENT_SHUNT_R8)) {
+      data.light = 0;
+      data.uv = 0;
+      data.voltage = 0;
+      data.current = 0;
+      DEBUG_PRINTLN(F("Warning: I2C ADC read failed"));
+    }
   } else {
     data.light = 0;
     data.uv = 0;
     data.voltage = 0;
     data.current = 0;
-    DEBUG_PRINTLN(F("Warning: ADS1115 not initialized"));
+    DEBUG_PRINTLN(F("Warning: I2C ADC not initialized"));
   }
 
   // Read Wind Speed (analog sensor)
