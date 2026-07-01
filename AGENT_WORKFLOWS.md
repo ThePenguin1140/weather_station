@@ -8,6 +8,16 @@ When working with the Cursor agent, you can use natural language prompts. The ag
 
 ## Deployment Workflows
 
+### Deployment Coordination (Multi-Agent Sessions)
+
+**Only one deploy or service restart on the Pi at a time.** Parallel `deploy_openhab.py` runs or `systemctl restart` on `openhab`, `weather-station`, or `grafana-server` cause race conditions on the server.
+
+**Rules for agents and subagents**:
+1. Parent coordinator serializes deploy/restart tasks — never parallelize them across subagents.
+2. Batch pending OpenHAB config and receiver changes into a single deploy when possible.
+3. Subagents may read logs, check status, or run `--dry-run`; they must not deploy or restart unless explicitly sequenced by the parent.
+4. Wait for an in-flight deploy to finish before starting another.
+
 ### Deploy Receiver Code
 
 **Natural Language Prompts**:

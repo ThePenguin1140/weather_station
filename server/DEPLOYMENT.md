@@ -68,6 +68,14 @@ This will:
 - Install/update Python dependencies in remote virtual environment
 - Restart `openhab` and `weather-station` services
 
+## Deployment Coordination
+
+**Run only one deploy or service restart on the Pi at a time.** Concurrent `deploy_openhab.py` executions or `systemctl restart` on `openhab`, `weather-station`, or `grafana-server` can cause race conditions (partial file writes, overlapping restarts).
+
+- When multiple agents or tasks have pending changes, batch them into a single deploy.
+- In multi-agent Cursor sessions, the parent coordinator must serialize deploy/restart work across subagents.
+- `--dry-run` is safe to run in parallel; it does not modify the server.
+
 ## Deployment Options
 
 ### Deploy Only OpenHAB Configuration

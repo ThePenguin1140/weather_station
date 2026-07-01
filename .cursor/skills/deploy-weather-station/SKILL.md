@@ -5,6 +5,15 @@ description: Deploy receiver code and OpenHAB configuration to the Raspberry Pi 
 
 # Weather Station Deployment
 
+## Deployment Coordination (CRITICAL)
+
+**Only one deploy or service restart on the Pi at a time.** Concurrent `deploy_openhab.py` runs or `systemctl restart` commands cause race conditions (partial writes, conflicting restarts, broken service state).
+
+- **Parent agents**: Serialize all deploy/restart work across subagents. Do not launch parallel subagents that each run deploy or restart commands.
+- **Subagents**: Never run `deploy_openhab.py` or `systemctl restart` on `openhab`, `weather-station`, or `grafana-server` unless the parent has confirmed no other deploy/restart is in progress.
+- **Batch changes**: If multiple config or code changes are pending, combine them into a single deploy instead of several back-to-back runs.
+- **Dry runs are safe**: `--dry-run` does not touch the server and can run in parallel with other read-only checks.
+
 ## Quick Start
 
 Always activate the virtual environment before deployment:

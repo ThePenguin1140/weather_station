@@ -269,15 +269,16 @@ arduino-cli lib install "ArduinoJson"
 
 When helping with this project:
 1. Always check if virtual environment needs activation before Python commands
-2. Use `server-deploy` SSH host for deployment operations
-3. Verify file paths are relative to project root
-4. Test commands in dry-run mode when possible
-5. Check service status after deployments
-6. Reference existing documentation before creating new procedures
-7. Use PowerShell syntax for local commands, bash for remote commands
-8. Always verify SSH connectivity before attempting deployments
-9. Check logs when debugging service issues
-10. Use `execute_command.py` utility for complex SSH operations
+2. **Serialize deploys and restarts**: Only one `deploy_openhab.py` run or `systemctl restart` (openhab, weather-station, grafana-server) on the Pi at a time. Parent agents must not parallelize deploy/restart across subagents; batch pending changes into a single deploy when possible.
+3. Use `server-deploy` SSH host for deployment operations
+4. Verify file paths are relative to project root
+5. Test commands in dry-run mode when possible
+6. Check service status after deployments
+7. Reference existing documentation before creating new procedures
+8. Use PowerShell syntax for local commands, bash for remote commands
+9. Always verify SSH connectivity before attempting deployments
+10. Check logs when debugging service issues
+11. Use `execute_command.py` utility for complex SSH operations
 
 ## Automatic Documentation References
 
