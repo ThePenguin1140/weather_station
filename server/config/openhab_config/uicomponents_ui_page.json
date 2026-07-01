@@ -71,6 +71,7 @@
                       {
                         "component": "widget:compass_card",
                         "config": {
+                            "title": "Wind (km/h)",
                             "action": "navigate",
                             "actionPage": "page:page_windspeed_chart",
                             "direction": "WeatherStation_WindDirection",
@@ -80,6 +81,7 @@
                       {
                         "component": "oh-label-card",
                         "config": {
+                          "title": "Pressure (hPa)",
                           "action": "navigate",
                           "actionPage": "page:page_pressure_chart",
                           "item": "WeatherStation_Pressure"
@@ -88,6 +90,7 @@
                       {
                         "component": "oh-label-card",
                         "config": {
+                          "title": "Humidity (%)",
                           "action": "navigate",
                           "actionPage": "page:page_humidity_chart",
                           "item": "WeatherStation_Humidity"
@@ -96,6 +99,7 @@
                       {
                         "component": "oh-label-card",
                         "config": {
+                          "title": "Absolute Humidity (g/m³)",
                           "action": "navigate",
                           "actionPage": "page:page_absolute_humidity_chart",
                           "item": "WeatherStation_AbsoluteHumidity"
@@ -104,6 +108,7 @@
                       {
                         "component": "oh-label-card",
                         "config": {
+                          "title": "Temperature (°C)",
                           "action": "navigate",
                           "actionPage": "page:page_temperature_chart",
                           "item": "WeatherStation_Temperature"
@@ -112,6 +117,7 @@
                       {
                         "component": "oh-label-card",
                         "config": {
+                          "title": "Battery Voltage (V)",
                           "action": "navigate",
                           "actionPage": "page:page_voltage_chart",
                           "item": "WeatherStation_Voltage"
@@ -120,9 +126,37 @@
                       {
                         "component": "oh-label-card",
                         "config": {
+                          "title": "Light Level",
                           "action": "navigate",
                           "actionPage": "page:page_light_chart",
                           "item": "WeatherStation_Light"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "title": "Soil Temperature (°C)",
+                          "action": "navigate",
+                          "actionPage": "page:page_soil_temperature_chart",
+                          "item": "WeatherStation_SoilTemperature"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "title": "Soil Moisture",
+                          "action": "navigate",
+                          "actionPage": "page:page_soil_moisture_chart",
+                          "item": "WeatherStation_SoilMoisture"
+                        }
+                      },
+                      {
+                        "component": "oh-label-card",
+                        "config": {
+                          "title": "UV Index",
+                          "action": "navigate",
+                          "actionPage": "page:page_uv_chart",
+                          "item": "WeatherStation_UV"
                         }
                       }
                     ]
@@ -675,6 +709,210 @@
               "gridIndex": 0,
               "item": "WeatherStation_Temperature",
               "name": "Temperature",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "jdbc"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_soil_temperature_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_soil_temperature_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Jul 1, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Soil Temperature",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_SoilTemperature",
+              "name": "Soil Temperature",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "jdbc"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_soil_moisture_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_soil_moisture_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Jul 1, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "Soil Moisture",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_SoilMoisture",
+              "name": "Soil Moisture",
+              "type": "line",
+              "xAxisIndex": 0,
+              "yAxisIndex": 0,
+              "noBoundary": true,
+              "noItemState": true,
+              "service": "jdbc"
+            }
+          }
+        ],
+        "xAxis": [
+          {
+            "component": "oh-time-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ],
+        "yAxis": [
+          {
+            "component": "oh-value-axis",
+            "config": {
+              "gridIndex": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "page_uv_chart": {
+    "class": "org.openhab.core.ui.components.RootUIComponent",
+    "value": {
+      "uid": "page_uv_chart",
+      "tags": [],
+      "props": {
+        "parameters": [],
+        "parameterGroups": []
+      },
+      "timestamp": "Jul 1, 2026, 12:00:00 PM",
+      "component": "oh-chart-page",
+      "config": {
+        "label": "UV",
+        "period": "D",
+        "sidebar": true
+      },
+      "slots": {
+        "grid": [
+          {
+            "component": "oh-chart-grid",
+            "config": {}
+          }
+        ],
+        "legend": [
+          {
+            "component": "oh-chart-legend",
+            "config": {
+              "orient": "vertical",
+              "right": "middle",
+              "show": true
+            }
+          }
+        ],
+        "series": [
+          {
+            "component": "oh-time-series",
+            "config": {
+              "gridIndex": 0,
+              "item": "WeatherStation_UV",
+              "name": "UV",
               "type": "line",
               "xAxisIndex": 0,
               "yAxisIndex": 0,
