@@ -1129,7 +1129,12 @@ weather-station service once as root in Step 7).
     parser.add_argument(
         '--no-restart',
         action='store_true',
-        help='Do not restart OpenHAB service after deployment'
+        help='Do not restart any services after deployment (OpenHAB, receiver, Grafana)'
+    )
+    parser.add_argument(
+        '--restart-openhab',
+        action='store_true',
+        help='Restart OpenHAB after config deployment (overrides config-only default)'
     )
     parser.add_argument(
         '--dry-run',
@@ -1195,11 +1200,22 @@ weather-station service once as root in Step 7).
         print(f"Error: SSH config file not found: {ssh_config_path}")
         sys.exit(1)
     
+    restart_service = not args.no_restart
+    restart_openhab = restart_service
+    # Config-only deploys rely on OpenHAB file-watcher hot reload (faster than restart).
+    if not args.skip_receiver or args.skip_openhab:
+        pass  # full or receiver-only deploy: follow --no-restart / default
+    elif args.restart_openhab:
+        restart_openhab = True
+    else:
+        restart_openhab = False
+
     result = deploy_files(
         ssh_config_path=str(ssh_config_path),
         local_config_dir=args.config_dir,
         remote_base_dir=args.remote_dir,
-        restart_service=not args.no_restart,
+        restart_service=restart_service,
+        restart_openhab=restart_openhab,
         dry_run=args.dry_run,
         host=args.host,
         deploy_receiver=not args.skip_receiver,

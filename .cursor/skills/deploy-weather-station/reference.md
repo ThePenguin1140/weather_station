@@ -46,10 +46,11 @@
 1. "I'll deploy the OpenHAB configuration files."
 2. Executes: `.\venv\Scripts\Activate.ps1`
 3. Executes: `python server/deploy_openhab.py --skip-receiver`
-4. "Deployment complete. Let me verify the files were deployed."
+4. "Deployment complete. OpenHAB was not restarted — changes hot-reload via file watcher."
 5. Executes: `ssh -F .ssh/config server-deploy "ls -la /etc/openhab/items/weather_station.items"`
-6. Executes: `ssh -F .ssh/config server-deploy "sudo systemctl status openhab"`
-7. Reports results to user
+6. Reports results to user
+
+If changes do not appear, redeploy with `--restart-openhab`.
 
 ### Example 3: Full Deployment
 **User**: "Deploy everything to the server"

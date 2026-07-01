@@ -40,10 +40,17 @@ python server/deploy_openhab.py --skip-receiver
 ```
 Use when: User wants to deploy OpenHAB items, rules, sitemaps, or other OpenHAB config files.
 
+**OpenHAB restart is skipped by default** for config-only deploys. OpenHAB 5 watches `/etc/openhab` and hot-reloads items, rules, sitemaps, persistence, jsondb UI components, and widgets without a full service restart. Add `--restart-openhab` only when changes are not picked up (e.g. `services/*.cfg` add-on config) or for troubleshooting.
+
+**Force OpenHAB restart** (when hot-reload is insufficient):
+```powershell
+python server/deploy_openhab.py --skip-receiver --restart-openhab
+```
+
 **Verification**:
 ```powershell
 ssh -F .ssh/config server-deploy "ls -la /etc/openhab/items/weather_station.items"
-ssh -F .ssh/config server-deploy "sudo systemctl status openhab"
+ssh -F .ssh/config server-deploy "sudo journalctl -u openhab -n 20 --no-pager | grep -i refresh"
 ```
 
 ### Full Deployment
@@ -65,13 +72,27 @@ Use when: User wants to see what would be deployed, preview deployment, or do a 
 
 ## Deployment Options
 
-- `--skip-receiver`: Skip receiver deployment
+- `--skip-receiver`: Skip receiver deployment (OpenHAB restart also skipped by default)
 - `--skip-openhab`: Skip OpenHAB config deployment
-- `--no-restart`: Don't restart services after deployment
+- `--no-restart`: Don't restart any services (OpenHAB, receiver, Grafana)
+- `--restart-openhab`: Force OpenHAB restart after config deploy (overrides config-only default)
 - `--dry-run`: Show what would be done without deploying
 - `--receiver_config`: Deploy config.json alongside receiver.py
 - `--host`: Specify SSH host (default: server-deploy)
 - `--remote-dir`: Custom OpenHAB config directory (default: /etc/openhab)
+
+## OpenHAB Hot Reload vs Restart
+
+| File type | Hot reload? | Notes |
+|-----------|-------------|-------|
+| `*.items`, `*.rules`, `*.sitemap` | Yes | File watcher reloads on save |
+| `*.persist` | Yes | Persistence model reloads |
+| `jsondb/uicomponents_*.json` | Yes | Main UI pages |
+| `ui/widgets/*.yaml` | Yes | Custom widgets |
+| `services/*.cfg` | Sometimes | Add-on config may need `--restart-openhab` |
+| Receiver code (`receiver.py`) | N/A | Always restart `weather-station` service |
+
+Config-only deploys (`--skip-receiver`) skip OpenHAB restart by default. Use `--restart-openhab` if changes do not appear after deploy.
 
 ## Context Information
 

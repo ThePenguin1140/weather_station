@@ -32,6 +32,7 @@ cd /mnt/f/Projects/weather_station
 |------|---------|
 | Full deploy (OpenHAB config + receiver) | `python.exe server/deploy_openhab.py` |
 | OpenHAB config only | `python.exe server/deploy_openhab.py --skip-receiver` |
+| OpenHAB config + force restart | `python.exe server/deploy_openhab.py --skip-receiver --restart-openhab` |
 | Receiver only | `python.exe server/deploy_openhab.py --skip-openhab` |
 | Preview without deploying | `python.exe server/deploy_openhab.py --dry-run` |
 | Deploy without restarting services | `python.exe server/deploy_openhab.py --no-restart` |

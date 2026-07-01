@@ -89,10 +89,23 @@ This deploys only:
 - `weather_station.items`
 - `weather_station.rules`
 - `weather_station.sitemap`
-- `rrd4j.persist`
-- `services/rrd4j.cfg`
+- Persistence and service config files
+- UI components and widgets
 
-And restarts the `openhab` service.
+**OpenHAB is not restarted by default.** OpenHAB 5 uses a filesystem watcher on `/etc/openhab` to hot-reload textual config (items, rules, sitemaps, persistence) and jsondb/UI files without a 30–60 second service restart. Add `--restart-openhab` if changes are not picked up.
+
+| Deployed file | Hot reload | Restart needed when |
+|---------------|------------|---------------------|
+| `*.items`, `*.rules`, `*.sitemap` | Yes | Rarely — syntax errors may require log check |
+| `*.persist` | Yes | Rarely |
+| `uicomponents_ui_page.json`, `widgets/*.yaml` | Yes | Rarely |
+| `services/influxdb.cfg`, `services/jdbc.cfg`, `services/runtime.cfg` | Sometimes | Add-on config may need `--restart-openhab` |
+
+Force restart after config deploy:
+
+```powershell
+python server/deploy_openhab.py --skip-receiver --restart-openhab
+```
 
 ### Deploy Only Receiver Application
 
@@ -161,7 +174,8 @@ The `deploy_openhab.py` script supports the following options:
 | ------------------------- | ----------------------------------------- | ------------------------------ |
 | `--skip-receiver`         | Skip receiver deployment                  | False                          |
 | `--skip-openhab`          | Skip OpenHAB config deployment            | False                          |
-| `--no-restart`            | Don't restart services after deployment   | False                          |
+| `--no-restart`            | Don't restart any services after deploy   | False                          |
+| `--restart-openhab`       | Force OpenHAB restart after config deploy | False (config-only skips OH)   |
 | `--dry-run`               | Show what would be done without deploying | False                          |
 | `--receiver_config`       | Deploy config.json alongside receiver.py  | False                          |
 | `--receiver-dir`          | Remote directory for receiver files       | `~/weather_station/server/src` |
@@ -265,6 +279,8 @@ After modifying files in `server/config/openhab_config/`:
 .\venv\Scripts\Activate.ps1
 python server/deploy_openhab.py --skip-receiver
 ```
+
+OpenHAB hot-reloads most config without restart. If changes do not appear, redeploy with `--restart-openhab`.
 
 ### Scenario 4: Deploy and Test Without Restart
 

@@ -81,9 +81,14 @@ ssh -F .ssh/config server-deploy "command"
 python server/deploy_openhab.py
 ```
 
-**Deploy Only OpenHAB Config**:
+**Deploy Only OpenHAB Config** (OpenHAB restart skipped by default; hot-reload):
 ```powershell
 python server/deploy_openhab.py --skip-receiver
+```
+
+**Force OpenHAB restart after config deploy**:
+```powershell
+python server/deploy_openhab.py --skip-receiver --restart-openhab
 ```
 
 **Deploy Only Receiver**:
@@ -107,9 +112,10 @@ python server/deploy_openhab.py --receiver_config
 ```
 
 ### Deployment Script Options
-- `--skip-receiver`: Skip receiver deployment
+- `--skip-receiver`: Skip receiver deployment (OpenHAB restart also skipped by default)
 - `--skip-openhab`: Skip OpenHAB config deployment
-- `--no-restart`: Don't restart services after deployment
+- `--no-restart`: Don't restart any services after deployment
+- `--restart-openhab`: Force OpenHAB restart after config deploy
 - `--dry-run`: Show what would be done without deploying
 - `--receiver_config`: Deploy config.json alongside receiver.py
 - `--host`: Specify SSH host (default: server-deploy)
@@ -227,8 +233,8 @@ arduino-cli lib install "ArduinoJson"
 ### Deploy OpenHAB Configuration
 1. Edit files in `server/config/openhab_config/`
 2. Activate venv: `.\venv\Scripts\Activate.ps1`
-3. Deploy: `python server/deploy_openhab.py --skip-receiver`
-4. Verify: Check OpenHAB UI and logs
+3. Deploy: `python server/deploy_openhab.py --skip-receiver` (no OpenHAB restart; hot-reload)
+4. Verify: Check OpenHAB UI and logs; use `--restart-openhab` if changes don't appear
 
 ### Update Arduino Sketch
 1. Edit `client/main/main.ino`

@@ -46,17 +46,19 @@ ssh -F .ssh/config server-deploy "sudo systemctl status weather-station"
 
 **Agent Actions**:
 1. Activate virtual environment
-2. Run deployment with `--skip-receiver` flag
+2. Run deployment with `--skip-receiver` flag (OpenHAB restart skipped by default; hot-reload picks up changes)
 3. Verify files were deployed
-4. Check OpenHAB service status
+4. Check OpenHAB logs for model refresh if needed
 
 **Commands Executed**:
 ```powershell
 .\venv\Scripts\Activate.ps1
 python server/deploy_openhab.py --skip-receiver
 ssh -F .ssh/config server-deploy "ls -la /etc/openhab/items/weather_station.items"
-ssh -F .ssh/config server-deploy "sudo systemctl status openhab"
+ssh -F .ssh/config server-deploy "sudo journalctl -u openhab -n 20 --no-pager | grep -i refresh"
 ```
+
+**When to add `--restart-openhab`**: Changes to `services/*.cfg` (influxdb, jdbc, runtime), hot-reload did not apply, or troubleshooting config load errors.
 
 ### Full Deployment
 
